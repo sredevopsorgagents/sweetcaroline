@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# El sitio no tiene rutas privadas ni de administración.
+Sitemap: https://sweetcaroline.cl/sitemap-index.xml

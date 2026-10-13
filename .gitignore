@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+.astro/
+
+# Caches and logs
+.cache/
+*.log
+
+# Test output
+test-results/
+playwright-report/
+playwright/.cache/
+coverage/
+
+# Editors and OS
+.DS_Store
+.vscode/
+.idea/
+
+# Local env
+.env
+.env.local
+.env.*.local

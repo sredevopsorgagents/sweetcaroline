@@ -1,0 +1,85 @@
+---
+import { Image } from 'astro:assets';
+import Icon from './Icon.astro';
+import { requireImage } from '../lib/images';
+import { whatsappLink } from '../lib/site';
+import home from '../data/home.json';
+
+/**
+ * Home hero.
+ *
+ * The original site ran a Revolution Slider carousel with white display type
+ * sitting on the photograph behind a heavy drop shadow. That combination
+ * cannot be made reliably accessible — contrast depends on whatever pixels end
+ * up under the text. This version splits the layout instead: the photograph
+ * keeps its place, and the copy moves onto a solid panel where the heading
+ * measures about 9.5:1. It also gives the page a single, fast LCP image.
+ */
+const slide = home.hero[0];
+const image = requireImage(slide.image);
+const extra = home.hero.slice(1);
+---
+
+<section class="bg-brand-50">
+  <div class="mx-auto grid max-w-6xl items-center gap-8 px-4 py-10 lg:grid-cols-2 lg:gap-12 lg:py-16">
+    <div class="order-2 lg:order-1">
+      <p class="text-accent-500 mb-3 text-sm font-semibold uppercase tracking-[0.2em]">{slide.subtitle}</p>
+      <h1 class="text-brand-900 text-4xl font-extrabold leading-[1.05] sm:text-5xl lg:text-6xl">
+        {slide.heading}
+      </h1>
+      <p class="text-ink-700 mt-6 max-w-lg text-lg">
+        Elaboramos pastelería fina y chocolatería de forma artesanal en nuestro taller de San Joaquín.
+        Tortas a pedido, tartas, pasteles y confites, además de café de grano en nuestra terraza.
+      </p>
+
+      <div class="mt-8 flex flex-wrap gap-3">
+        <a
+          href="/productos/"
+          class="bg-brand-500 hover:bg-brand-700 inline-flex items-center gap-2 rounded-full px-6 py-3 font-semibold text-white transition-colors"
+        >
+          Ver productos
+          <Icon name="chevron-right" size={18} />
+        </a>
+        <a
+          href={whatsappLink('Hola, quisiera hacer un pedido.')}
+          class="border-brand-700 text-brand-700 hover:bg-brand-700 inline-flex items-center gap-2 rounded-full border-2 px-6 py-3 font-semibold transition-colors hover:text-white"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Icon name="whatsapp" size={18} />
+          Pedir por WhatsApp
+        </a>
+      </div>
+    </div>
+
+    <div class="order-1 lg:order-2">
+      <Image
+        src={image}
+        alt="Macarons de Sweet Caroline servidos en un bol"
+        widths={[480, 768, 1024]}
+        sizes="(min-width: 1024px) 45vw, 92vw"
+        loading="eager"
+        fetchpriority="high"
+        decoding="async"
+        class="w-full rounded-3xl shadow-sm"
+      />
+    </div>
+  </div>
+</section>
+
+{
+  /* The two remaining slider copy blocks, reused as static highlights rather
+     than as carousel slides nobody reaches. */
+  extra.length > 0 && (
+    <section aria-label="Más de Sweet Caroline" class="border-brand-line-soft border-b">
+      <ul class="mx-auto grid max-w-6xl gap-4 px-4 py-8 sm:grid-cols-2">
+        {extra.map((entry) => (
+          <li class="border-brand-line-soft rounded-2xl border bg-white p-5">
+            <h2 class="text-brand-900 text-lg font-bold">{entry.heading}</h2>
+            <p class="text-ink-600 mt-1 text-sm">{entry.subtitle}</p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}

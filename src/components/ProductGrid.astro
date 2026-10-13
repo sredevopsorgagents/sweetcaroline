@@ -1,0 +1,25 @@
+---
+import ProductCard from './ProductCard.astro';
+import type { Product } from '../lib/catalog';
+
+interface Props {
+  products: Product[];
+  /**
+   * Heading level for each product name. Use `h2` when the grid sits directly
+   * under the page `h1` (a category listing); the default `h3` suits a grid
+   * nested inside a titled section.
+   */
+  headingLevel?: 'h2' | 'h3';
+  class?: string;
+}
+
+const { products, headingLevel, class: className } = Astro.props;
+---
+
+<ul class:list={['grid gap-5 sm:grid-cols-2 lg:grid-cols-4', className]}>
+  {
+    products.map((product) => (
+      <ProductCard product={product} headingLevel={headingLevel} />
+    ))
+  }
+</ul>

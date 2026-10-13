@@ -1,0 +1,43 @@
+---
+import Photo from './Photo.astro';
+import Icon from './Icon.astro';
+import type { CategoryWithProducts } from '../lib/catalog';
+import { formatCount } from '../lib/catalog';
+
+interface Props {
+  section: 'productos' | 'cafeteria';
+  categories: CategoryWithProducts[];
+}
+
+const { section, categories } = Astro.props;
+---
+
+<ul class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+  {
+    categories.map(({ category, slug, name, products }) => (
+      <li>
+        <a
+          href={`/${section}/categoria/${slug}/`}
+          class="group border-brand-line-soft hover:border-brand-line-strong focus-visible:border-brand-line-strong block overflow-hidden rounded-2xl border bg-white transition-colors"
+        >
+          <Photo
+            imageKey={category.data.image}
+            alt={name}
+            width={354}
+            height={354}
+            widths={[320, 480, 640]}
+            sizes="(min-width: 1024px) 30vw, (min-width: 640px) 45vw, 90vw"
+            class="w-full transition-transform duration-300 group-hover:scale-[1.03]"
+          />
+          <div class="flex items-center justify-between gap-3 p-5">
+            <span>
+              <span class="text-brand-900 block text-lg font-bold">{name}</span>
+              <span class="text-ink-600 block text-sm">{formatCount(products.length)}</span>
+            </span>
+            <Icon name="chevron-right" size={20} class="text-brand-500 shrink-0" />
+          </div>
+        </a>
+      </li>
+    ))
+  }
+</ul>

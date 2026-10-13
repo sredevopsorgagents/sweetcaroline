@@ -1,0 +1,131 @@
+---
+import { Image } from 'astro:assets';
+import { requireImage } from '../lib/images';
+import gallery from '../data/gallery.json';
+
+/**
+ * Photo gallery with a native `<dialog>` lightbox.
+ *
+ * `<dialog>` gives focus trapping, Escape-to-close and an inert background for
+ * free, so the script only has to swap the image source and call
+ * `showModal()`/`close()`.
+ */
+const photos = gallery.map((entry) => ({ ...entry, image: requireImage(entry.key) }));
+const [lead, ...rest] = photos;
+---
+
+{
+  lead && (
+    <div class="space-y-2">
+      <button
+        type="button"
+        class="group block w-full overflow-hidden rounded-2xl"
+        data-gallery-index="0"
+        aria-label={`Ampliar: ${lead.alt}`}
+      >
+        <Image
+          src={lead.image}
+          alt={lead.alt}
+          widths={[480, 768, 1200]}
+          sizes="(min-width: 1024px) 900px, 92vw"
+          loading="eager"
+          fetchpriority="high"
+          class="w-full transition-transform duration-300 group-hover:scale-[1.02]"
+        />
+      </button>
+    </div>
+  )
+}
+
+<ul class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+  {
+    rest.map((photo, index) => (
+      <li>
+        <button
+          type="button"
+          class="group block w-full overflow-hidden rounded-xl"
+          data-gallery-index={index + 1}
+          aria-label={`Ampliar: ${photo.alt}`}
+        >
+          <Image
+            src={photo.image}
+            alt={photo.alt}
+            widths={[240, 400, 640]}
+            sizes="(min-width: 1024px) 22vw, (min-width: 640px) 30vw, 45vw"
+            loading="lazy"
+            class="aspect-square w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
+          />
+        </button>
+      </li>
+    ))
+  }
+</ul>
+
+{/* Data for the lightbox, kept out of the markup flow. */}
+<script type="application/json" id="gallery-data" set:html={JSON.stringify(photos.map((p) => ({ src: p.image.src, alt: p.alt })))} />
+
+<dialog
+  id="lightbox"
+  class="m-auto max-h-[92dvh] max-w-[92vw] rounded-2xl bg-transparent p-0 backdrop:bg-black/80"
+  aria-label="Galería de fotos ampliada"
+>
+  <div class="relative">
+    {/* Empty until the dialog opens; hidden from AT in the meantime so it never
+        exposes a nameless image. */}
+    <img
+      id="lightbox-image"
+      src=""
+      alt=""
+      aria-hidden="true"
+      class="max-h-[86dvh] max-w-[92vw] rounded-2xl object-contain"
+    />
+    <form method="dialog" class="absolute right-2 top-2">
+      <button
+        type="submit"
+        class="inline-flex size-11 items-center justify-center rounded-full bg-white/90 text-brand-900 hover:bg-white"
+        aria-label="Cerrar la imagen ampliada"
+      >
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+          <path d="M18.3 5.7 12 12l6.3 6.3-1.4 1.4L10.6 13.4 4.3 19.7 2.9 18.3 9.2 12 2.9 5.7 4.3 4.3l6.3 6.3 6.3-6.3z"></path>
+        </svg>
+      </button>
+    </form>
+  </div>
+</dialog>
+
+<script>
+  const dataEl = document.getElementById('gallery-data');
+  const dialog = document.getElementById('lightbox') as HTMLDialogElement | null;
+  const imageEl = document.getElementById('lightbox-image') as HTMLImageElement | null;
+
+  if (dataEl && dialog && imageEl) {
+    const photos = JSON.parse(dataEl.textContent ?? '[]') as { src: string; alt: string }[];
+    let lastTrigger: HTMLElement | null = null;
+
+    for (const trigger of document.querySelectorAll<HTMLElement>('[data-gallery-index]')) {
+      trigger.addEventListener('click', () => {
+        const photo = photos[Number(trigger.dataset.galleryIndex)];
+        if (!photo) return;
+        lastTrigger = trigger;
+        imageEl.src = photo.src;
+        imageEl.alt = photo.alt;
+        imageEl.removeAttribute('aria-hidden');
+        dialog.showModal();
+      });
+    }
+
+    dialog.addEventListener('close', () => {
+      imageEl.src = '';
+      imageEl.alt = '';
+      imageEl.setAttribute('aria-hidden', 'true');
+      // Return focus to the thumbnail that opened the dialog.
+      lastTrigger?.focus();
+      lastTrigger = null;
+    });
+
+    // Clicking the backdrop closes the dialog (native <dialog> does not).
+    dialog.addEventListener('click', (event) => {
+      if (event.target === dialog) dialog.close();
+    });
+  }
+</script>

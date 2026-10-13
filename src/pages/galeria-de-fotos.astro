@@ -1,0 +1,30 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PageHeader from '../components/PageHeader.astro';
+import Gallery from '../components/Gallery.astro';
+import ContactStrip from '../components/ContactStrip.astro';
+
+const trail = [
+  { name: 'Inicio', path: '/' },
+  { name: 'Galería de fotos', path: '/galeria-de-fotos/' },
+];
+---
+
+<BaseLayout
+  title="Galería de fotos"
+  description="Fotografías de nuestra pastelería, el taller de producción y la terraza de Sweet Caroline en San Joaquín."
+  breadcrumbs={trail}
+>
+  <PageHeader
+    eyebrow="Nuestro espacio"
+    title="Galería de fotos"
+    description="El taller, la tienda y la terraza donde elaboramos y servimos nuestra pastelería."
+    trail={trail}
+  />
+
+  <section class="mx-auto max-w-6xl px-4 py-12" aria-label="Galería de fotografías">
+    <Gallery />
+  </section>
+
+  <ContactStrip />
+</BaseLayout>

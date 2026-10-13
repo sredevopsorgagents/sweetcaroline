@@ -1,0 +1,182 @@
+---
+import { Image } from 'astro:assets';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Breadcrumbs from '../../components/Breadcrumbs.astro';
+import ProductGrid from '../../components/ProductGrid.astro';
+import ContactStrip from '../../components/ContactStrip.astro';
+import Icon from '../../components/Icon.astro';
+import { getProducts, getVisibleCategories, productsInCategory, compareProducts } from '../../lib/catalog';
+import { getImage } from '../../lib/images';
+import { buildProductPage } from '../../lib/seo';
+import { whatsappLink } from '../../lib/site';
+
+export async function getStaticPaths() {
+  const products = await getProducts();
+  return products.map((product) => ({
+    params: { slug: product.id },
+    props: { product },
+  }));
+}
+
+const { product } = Astro.props;
+const { name, description, image, subgroup, categories } = product.data;
+
+const allCategories = await getVisibleCategories();
+const categoryNames = categories
+  .map((slug) => allCategories.find((c) => c.id === slug)?.data.name)
+  .filter(Boolean) as string[];
+
+const SUBGROUP_LABELS: Record<string, string> = {
+  personalizadas: 'Torta personalizada',
+  estandar: 'Torta estándar',
+  diabeticos: 'Torta sin azúcar añadida',
+};
+const subgroupLabel = subgroup ? SUBGROUP_LABELS[subgroup] : undefined;
+
+const primaryCategory = categories[0];
+const section = product.data.sections[0] ?? 'productos';
+const sectionTitle = section === 'cafeteria' ? 'En cafetería' : 'Productos';
+
+const trail = [
+  { name: 'Inicio', path: '/' },
+  { name: sectionTitle, path: `/${section}/` },
+  { name, path: `/producto/${product.id}/` },
+];
+
+const imageMeta = getImage(image);
+
+// Related products from the same primary category, excluding this one.
+const all = await getProducts();
+const related = primaryCategory
+  ? productsInCategory(all, primaryCategory)
+      .filter((p) => p.id !== product.id)
+      .slice(0, 4)
+  : [];
+---
+
+<BaseLayout
+  title={name}
+  description={description || `${name} — pastelería fina de Sweet Caroline, San Joaquín, Santiago.`}
+  image={imageMeta}
+  imageAlt={name}
+  breadcrumbs={trail}
+  structuredData={[
+    buildProductPage(
+      { name, description },
+      `/producto/${product.id}/`,
+      Astro.site,
+    ),
+  ]}
+>
+  <div class="bg-brand-50 border-brand-line-soft border-b">
+    <div class="mx-auto max-w-6xl px-4 py-5">
+      <Breadcrumbs trail={trail} />
+    </div>
+  </div>
+
+  <article class="mx-auto max-w-6xl px-4 py-12">
+    <div class="grid gap-10 lg:grid-cols-2">
+      <div>
+        {
+          imageMeta ? (
+            <Image
+              src={imageMeta}
+              alt={name}
+              widths={[400, 640, 900]}
+              sizes="(min-width: 1024px) 45vw, 92vw"
+              loading="eager"
+              fetchpriority="high"
+              class="w-full rounded-3xl"
+            />
+          ) : (
+            /* No photograph exists for this product in WordPress. Rendering
+               the branded tile rather than a broken frame. */
+            <div
+              class="bg-brand-50 text-brand-500 flex aspect-square items-center justify-center rounded-3xl"
+              role="img"
+              aria-label={`${name} — sin fotografía disponible`}
+            >
+              <svg viewBox="0 0 32 32" class="size-24 opacity-60" aria-hidden="true">
+                <g fill="currentColor">
+                  <ellipse cx="16" cy="9.4" rx="3.1" ry="4.4" />
+                  <ellipse cx="16" cy="22.6" rx="3.1" ry="4.4" />
+                  <ellipse cx="9.4" cy="16" rx="4.4" ry="3.1" />
+                  <ellipse cx="22.6" cy="16" rx="4.4" ry="3.1" />
+                </g>
+              </svg>
+            </div>
+          )
+        }
+      </div>
+
+      <div>
+        {subgroupLabel && (
+          <p class="text-accent-500 mb-3 text-sm font-semibold uppercase tracking-widest">{subgroupLabel}</p>
+        )}
+        <h1 class="text-brand-900 text-3xl font-extrabold sm:text-4xl">{name}</h1>
+
+        {
+          description ? (
+            <p class="text-ink-700 mt-6 text-lg whitespace-pre-line">{description}</p>
+          ) : (
+            <p class="text-ink-600 mt-6 text-lg italic">
+              Consultar disponibilidad, sabores y formatos.
+            </p>
+          )
+        }
+
+        {
+          categoryNames.length > 0 && (
+            <ul class="mt-8 flex flex-wrap gap-2">
+              {categoryNames.map((label) => (
+                <li class="bg-brand-50 text-brand-900 rounded-full px-3 py-1 text-sm font-medium">{label}</li>
+              ))}
+            </ul>
+          )
+        }
+
+        <div class="mt-8 rounded-2xl border border-brand-line-soft bg-white p-6">
+          <h2 class="text-brand-900 text-lg font-bold">Pedidos</h2>
+          <p class="text-ink-600 mt-2 text-sm">
+            Los pedidos se coordinan por WhatsApp o teléfono. Retiro de lunes a domingo, de 10.00 a
+            20.00 hrs, en Av. Estadio 6027, San Joaquín.
+          </p>
+          <div class="mt-5 flex flex-wrap gap-3">
+            <a
+              href={whatsappLink(`Hola, quisiera consultar por: ${name}.`)}
+              class="bg-brand-500 hover:bg-brand-700 inline-flex items-center gap-2 rounded-full px-5 py-3 font-semibold text-white transition-colors"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Icon name="whatsapp" size={18} />
+              Consultar por WhatsApp
+            </a>
+            <a
+              href="/contacto/"
+              class="border-brand-700 text-brand-700 hover:bg-brand-700 inline-flex items-center gap-2 rounded-full border-2 px-5 py-3 font-semibold transition-colors hover:text-white"
+            >
+              Ver contacto
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  {
+    related.length > 0 && (
+      <section class="border-brand-line-soft border-t" aria-labelledby="relacionados">
+        <div class="mx-auto max-w-6xl px-4 py-12">
+          <h2 id="relacionados" class="text-brand-900 text-2xl font-bold">
+            También te puede interesar
+          </h2>
+          <div class="mt-8">
+            <ProductGrid products={related} />
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  <ContactStrip />
+</BaseLayout>

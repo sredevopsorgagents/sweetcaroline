@@ -1,0 +1,26 @@
+---
+interface Props {
+  title: string;
+  /** Optional eyebrow above the heading. */
+  eyebrow?: string;
+  description?: string;
+  align?: 'left' | 'center';
+  as?: 'h1' | 'h2' | 'h3';
+  /** Applied to the heading so `aria-labelledby` can point at it. */
+  id?: string;
+  class?: string;
+}
+
+const { title, eyebrow, description, align = 'left', as = 'h2', id, class: className } = Astro.props;
+const Heading = as;
+---
+
+<div class:list={['max-w-2xl', align === 'center' && 'mx-auto text-center', className]}>
+  {eyebrow && <p class="text-accent-500 mb-2 text-sm font-semibold uppercase tracking-widest">{eyebrow}</p>}
+  <Heading id={id} class="text-brand-900 text-3xl font-bold sm:text-4xl">{title}</Heading>
+  {
+    description && (
+      <p class="text-ink-600 mt-4 text-lg">{description}</p>
+    )
+  }
+</div>

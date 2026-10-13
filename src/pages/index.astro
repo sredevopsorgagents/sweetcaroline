@@ -1,0 +1,113 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Hero from '../components/Hero.astro';
+import CategoryGrid from '../components/CategoryGrid.astro';
+import ContactStrip from '../components/ContactStrip.astro';
+import SectionHeading from '../components/SectionHeading.astro';
+import Icon from '../components/Icon.astro';
+import { requireImage } from '../lib/images';
+import { getSectionView } from '../lib/catalog';
+import { SECTIONS } from '../data/navigation';
+import { SITE, whatsappLink } from '../lib/site';
+import home from '../data/home.json';
+
+const [productos, cafeteria] = await Promise.all([
+  getSectionView('productos'),
+  getSectionView('cafeteria'),
+]);
+
+const highlightImage = requireImage('hero/personaliza');
+---
+
+<BaseLayout
+  title="Pastelería fina y chocolatería en San Joaquín"
+  pageTitle="Sweet Caroline | Pastelería fina y chocolatería en San Joaquín"
+  description={SITE.description}
+  image={highlightImage}
+  imageAlt="Torta personalizada de Sweet Caroline"
+>
+  <Hero />
+
+  <section class="mx-auto max-w-6xl px-4 py-14" aria-labelledby="destacados">
+    <SectionHeading
+      id="destacados"
+      eyebrow="Nuestra carta"
+      title="Delicias para toda ocasión"
+      description="Pastelería fina elaborada a mano en tandas constantes, para mantener la promesa de productos frescos."
+    />
+
+    <ul class="mt-8 grid gap-5 sm:grid-cols-3">
+      {
+        home.highlights.map((highlight) => (
+          <li class="border-brand-line-soft flex flex-col rounded-2xl border bg-white p-6">
+            <h3 class="text-brand-900 text-lg font-bold">{highlight.heading}</h3>
+            <p class="text-ink-600 mt-2 flex-1">{highlight.body}</p>
+            <a
+              href={highlight.href}
+              class="text-brand-700 mt-4 inline-flex items-center gap-1 font-semibold hover:underline"
+            >
+              <span>{highlight.cta}</span>
+              <Icon name="chevron-right" size={16} />
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+
+  {
+    SECTIONS.map((section) => {
+      const view = section.slug === 'productos' ? productos : cafeteria;
+      return (
+        <section
+          class="border-brand-line-soft border-t"
+          aria-labelledby={`seccion-${section.slug}`}
+        >
+          <div class="mx-auto max-w-6xl px-4 py-14">
+            <div class="flex flex-wrap items-end justify-between gap-4">
+              <SectionHeading
+                id={`seccion-${section.slug}`}
+                eyebrow={section.tagline}
+                title={section.title}
+                description={section.description}
+              />
+              <a
+                href={section.href}
+                class="text-brand-700 inline-flex items-center gap-1 font-semibold hover:underline"
+              >
+                <span>Ver todo</span>
+                <Icon name="chevron-right" size={16} />
+              </a>
+            </div>
+            <div class="mt-8">
+              <CategoryGrid section={section.slug} categories={view.categories.slice(0, 6)} />
+            </div>
+          </div>
+        </section>
+      );
+    })
+  }
+
+  <section class="bg-brand-900 text-white" aria-labelledby="personaliza">
+    <div class="mx-auto flex max-w-6xl flex-col items-start gap-6 px-4 py-14 sm:flex-row sm:items-center sm:justify-between">
+      <div class="max-w-2xl">
+        <h2 id="personaliza" class="text-2xl font-bold sm:text-3xl">Personaliza tu torta</h2>
+        <p class="mt-3 text-lg text-white/95">
+          Personajes, flores, dibujos o el diseño que quieras. Cuéntanos qué necesitas y te
+          preparamos una torta a pedido.
+        </p>
+      </div>
+      <a
+        href={whatsappLink('Hola, quisiera encargar una torta personalizada.')}
+        class="inline-flex shrink-0 items-center gap-2 rounded-full bg-white px-6 py-3 font-semibold text-brand-900 transition-colors hover:bg-brand-50"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        <Icon name="whatsapp" size={18} />
+        Pedir por WhatsApp
+      </a>
+    </div>
+  </section>
+
+  <ContactStrip />
+</BaseLayout>

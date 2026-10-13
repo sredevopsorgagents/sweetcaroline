@@ -1,0 +1,71 @@
+---
+import Photo from './Photo.astro';
+import Icon from './Icon.astro';
+import type { Product } from '../lib/catalog';
+
+interface Props {
+  product: Product;
+  /**
+   * Heading level for the product name. Defaults to `h3` (a card inside a
+   * section that already has an `h2`), but callers sitting directly under an
+   * `h1` — such as a category listing — pass `h2` so heading levels never skip.
+   */
+  headingLevel?: 'h2' | 'h3';
+}
+
+const { product, headingLevel = 'h3' } = Astro.props;
+const Heading = headingLevel;
+const { name, image, description, subgroup, categories } = product.data;
+
+const SUBGROUP_LABELS: Record<string, string> = {
+  personalizadas: 'Personalizada',
+  estandar: 'Estándar',
+  diabeticos: 'Sin azúcar añadida',
+};
+
+const label = subgroup ? SUBGROUP_LABELS[subgroup] : undefined;
+const primaryCategory = categories[0];
+---
+
+<li>
+  <a
+    href={`/producto/${product.id}/`}
+    class="group border-brand-line-soft hover:border-brand-line-strong focus-visible:border-brand-line-strong flex h-full flex-col overflow-hidden rounded-2xl border bg-white transition-colors"
+  >
+    <div class="relative overflow-hidden">
+      <Photo
+        imageKey={image}
+        alt={name}
+        width={400}
+        height={400}
+        widths={[280, 400, 560]}
+        sizes="(min-width: 1024px) 22vw, (min-width: 640px) 45vw, 90vw"
+        class="w-full transition-transform duration-300 group-hover:scale-[1.03]"
+      />
+      {
+        label && (
+          <span class="bg-brand-900 absolute left-3 top-3 rounded-full px-2.5 py-1 text-xs font-semibold text-white">
+            {label}
+          </span>
+        )
+      }
+    </div>
+
+    <div class="flex flex-1 flex-col gap-2 p-4">
+      <Heading class="text-brand-900 text-base font-bold">{name}</Heading>
+      {
+        description ? (
+          <p class="text-ink-600 line-clamp-3 text-sm">{description}</p>
+        ) : (
+          /* Two products have no description in WordPress. Nothing is invented
+             to fill the space. */
+          <p class="text-ink-600 text-sm italic">Consultar disponibilidad y sabores.</p>
+        )
+      }
+      <span class="text-brand-700 mt-auto inline-flex items-center gap-1 text-sm font-semibold">
+        Ver detalle
+        <Icon name="chevron-right" size={16} />
+      </span>
+    </div>
+  </a>
+</li>

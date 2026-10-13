@@ -1,0 +1,72 @@
+---
+import type { GetStaticPaths } from 'astro';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import PageHeader from '../../../components/PageHeader.astro';
+import ProductGrid from '../../../components/ProductGrid.astro';
+import ContactStrip from '../../../components/ContactStrip.astro';
+import Icon from '../../../components/Icon.astro';
+import { getCategoryRoutes, formatCount, isSectionSlug, type SectionSlug } from '../../../lib/catalog';
+import { SECTIONS } from '../../../data/navigation';
+
+export const getStaticPaths: GetStaticPaths = async () => {
+  const routes = await getCategoryRoutes();
+  return routes.map((route) => ({
+    params: { section: route.section, categoria: route.category },
+    props: { view: route.view, section: route.section },
+  }));
+};
+
+interface Props {
+  view: Awaited<ReturnType<typeof getCategoryRoutes>>[number]['view'];
+  section: SectionSlug;
+}
+
+const { view, section } = Astro.props;
+
+// Guard: the dynamic segment must never resolve to something the site has no
+// section for. `getStaticPaths` only emits valid pairs, but this keeps a future
+// refactor from silently rendering a broken page.
+if (!isSectionSlug(section)) {
+  throw new Error(`Unknown section "${section}" for category route`);
+}
+
+const sectionMeta = SECTIONS.find((entry) => entry.slug === section);
+if (!sectionMeta) throw new Error(`Section metadata missing for "${section}"`);
+
+const trail = [
+  { name: 'Inicio', path: '/' },
+  { name: sectionMeta.title, path: sectionMeta.href },
+  { name: view.name, path: `/${section}/categoria/${view.slug}/` },
+];
+---
+
+<BaseLayout
+  title={`${view.name} — ${sectionMeta.title}`}
+  description={`${formatCount(view.products.length)} de ${view.name.toLowerCase()} en Sweet Caroline, San Joaquín, Santiago.`}
+  image={view.category.data.image ? undefined : undefined}
+  breadcrumbs={trail}
+>
+  <PageHeader
+    eyebrow={sectionMeta.title}
+    title={view.name}
+    description={formatCount(view.products.length)}
+    trail={trail}
+  />
+
+  <section class="mx-auto max-w-6xl px-4 py-12" aria-label={`Productos en ${view.name}`}>
+    {/* The grid sits directly under the page h1, so card titles are h2. */}
+    <ProductGrid products={view.products} headingLevel="h2" />
+
+    <p class="mt-10">
+      <a
+        href={sectionMeta.href}
+        class="text-brand-700 inline-flex items-center gap-1 font-semibold hover:underline"
+      >
+        <Icon name="chevron-left" size={16} />
+        <span>Volver a {sectionMeta.title}</span>
+      </a>
+    </p>
+  </section>
+
+  <ContactStrip />
+</BaseLayout>

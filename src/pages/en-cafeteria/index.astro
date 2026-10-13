@@ -1,0 +1,66 @@
+---
+import { getEntry, render } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PageHeader from '../../components/PageHeader.astro';
+import CategoryGrid from '../../components/CategoryGrid.astro';
+import ContactStrip from '../../components/ContactStrip.astro';
+import { getSectionView, formatCount } from '../../lib/catalog';
+
+const view = await getSectionView('cafeteria');
+const entry = await getEntry('pages', 'en-cafeteria');
+const { Content } = entry ? await render(entry) : { Content: null };
+
+const trail = [
+  { name: 'Inicio', path: '/' },
+  { name: 'En cafetería', path: '/en-cafeteria/' },
+];
+---
+
+<BaseLayout
+  title="En cafetería"
+  description={entry?.data.description ?? 'Café de grano, pastelería por trozo y bebestibles en nuestra tienda y terraza de San Joaquín.'}
+  breadcrumbs={trail}
+>
+  <PageHeader
+    eyebrow="Tienda y terraza"
+    title="En cafetería"
+    description={`${formatCount(view.totalProducts)} para disfrutar en nuestra terraza o para llevar.`}
+    trail={trail}
+  />
+
+  <section class="mx-auto max-w-6xl px-4 py-12" aria-label="Categorías de cafetería">
+    <CategoryGrid section="cafeteria" categories={view.categories} />
+  </section>
+
+  {
+    Content && (
+      <section class="border-brand-line-soft border-t" aria-label="Sobre nuestra cafetería">
+        <div class="prose-brand mx-auto max-w-3xl px-4 py-12">
+          <Content />
+        </div>
+      </section>
+    )
+  }
+
+  <ContactStrip />
+</BaseLayout>
+
+<style>
+  .prose-brand :global(h2) {
+    color: var(--color-brand-900);
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-top: 2rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .prose-brand :global(h2:first-child) {
+    margin-top: 0;
+  }
+
+  .prose-brand :global(p) {
+    color: var(--color-ink-700);
+    font-size: 1.125rem;
+    margin-bottom: 1rem;
+  }
+</style>

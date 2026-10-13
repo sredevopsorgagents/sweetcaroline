@@ -1,0 +1,68 @@
+---
+import { Image } from 'astro:assets';
+import { getImage } from '../lib/images';
+
+interface Props {
+  /** Logical image key, e.g. `products/macarons`. */
+  imageKey?: string | null;
+  alt: string;
+  width: number;
+  height: number;
+  class?: string;
+  /** Responsive `sizes` attribute; defaults to a full-width mobile / half-width desktop card. */
+  sizes?: string;
+  widths?: number[];
+  loading?: 'eager' | 'lazy';
+  fetchpriority?: 'high' | 'low' | 'auto';
+}
+
+const {
+  imageKey,
+  alt,
+  width,
+  height,
+  class: className,
+  sizes = '(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw',
+  widths = [320, 480, 640, 960],
+  loading = 'lazy',
+  fetchpriority = 'auto',
+} = Astro.props;
+
+const image = getImage(imageKey);
+const ratio = `${width} / ${height}`;
+---
+
+{
+  image ? (
+    <Image
+      src={image}
+      alt={alt}
+      widths={widths}
+      sizes={sizes}
+      loading={loading}
+      decoding="async"
+      fetchpriority={fetchpriority}
+      class={className}
+      style={`aspect-ratio: ${ratio}; object-fit: cover;`}
+    />
+  ) : (
+    /* Roughly a third of the WordPress catalog has no photograph. Rather than
+       leaving a hole or fabricating an image, these render a branded tile so
+       the grid keeps its rhythm. */
+    <div
+      class:list={['flex items-center justify-center bg-brand-50 text-brand-500', className]}
+      style={`aspect-ratio: ${ratio};`}
+      role="img"
+      aria-label={`${alt} — sin fotografía disponible`}
+    >
+      <svg viewBox="0 0 32 32" class="size-12 opacity-60" aria-hidden="true" focusable="false">
+        <g fill="currentColor">
+          <ellipse cx="16" cy="9.4" rx="3.1" ry="4.4" />
+          <ellipse cx="16" cy="22.6" rx="3.1" ry="4.4" />
+          <ellipse cx="9.4" cy="16" rx="4.4" ry="3.1" />
+          <ellipse cx="22.6" cy="16" rx="4.4" ry="3.1" />
+        </g>
+      </svg>
+    </div>
+  )
+}

@@ -1,0 +1,33 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PageHeader from '../../components/PageHeader.astro';
+import CategoryGrid from '../../components/CategoryGrid.astro';
+import ContactStrip from '../../components/ContactStrip.astro';
+import { getSectionView, formatCount } from '../../lib/catalog';
+
+const view = await getSectionView('productos');
+
+const trail = [
+  { name: 'Inicio', path: '/' },
+  { name: 'Productos', path: '/productos/' },
+];
+---
+
+<BaseLayout
+  title="Productos"
+  description="Tortas a pedido, tartas, pasteles, confites y postres de pastelería fina elaborados a mano en San Joaquín, Santiago."
+  breadcrumbs={trail}
+>
+  <PageHeader
+    eyebrow="Pastelería fina y chocolatería"
+    title="Productos"
+    description={`Nuestra carta de pastelería: ${formatCount(view.totalProducts)} en ${view.categories.length} categorías, elaborados de forma artesanal.`}
+    trail={trail}
+  />
+
+  <section class="mx-auto max-w-6xl px-4 py-12" aria-label="Categorías de productos">
+    <CategoryGrid section="productos" categories={view.categories} />
+  </section>
+
+  <ContactStrip />
+</BaseLayout>
