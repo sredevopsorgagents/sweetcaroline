@@ -21,6 +21,19 @@ const DIST = path.join(ROOT, 'dist');
 
 const site = (process.env.SITE_URL ?? 'https://sweetcaroline.cl').replace(/\/$/, '');
 
+// Mirror the derivation in `astro.config.mjs`: a project-page deploy serves
+// under `/<repo>/`, so the canonical target must carry that prefix too or the
+// stub points one level too high.
+const sitePath = (() => {
+  try {
+    return new URL(site).pathname.replace(/\/$/, '');
+  } catch {
+    return '';
+  }
+})();
+const base = (process.env.BASE_PATH ?? sitePath) || '';
+const prefix = base === '/' ? '' : base;
+
 /** Escape a string for safe interpolation into HTML text/attribute context. */
 const escapeHtml = (value) =>
   value
@@ -31,9 +44,13 @@ const escapeHtml = (value) =>
     .replace(/'/g, '&#39;');
 
 function stub(to) {
+  // `site` already carries the project-page base (it comes from SITE_URL), so
+  // the absolute target is just site + path. Adding `prefix` here would produce
+  // `/sweetcaroline/sweetcaroline/...`.
   const target = `${site}${to}`;
   const safe = escapeHtml(target);
-  const safeTo = escapeHtml(to);
+  // The visible link is an absolute path, so it needs the base explicitly.
+  const safeTo = escapeHtml(`${prefix}${to}`);
   return `<!doctype html>
 <html lang="es-CL">
   <head>

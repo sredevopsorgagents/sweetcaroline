@@ -8,6 +8,7 @@ import ScallopEdge from '../components/ScallopEdge.astro';
 import Footer from '../components/Footer.astro';
 import { SITE, addressLine } from '../lib/site';
 import { absoluteUrl, buildLocalBusiness, buildBreadcrumbs, type Breadcrumb } from '../lib/seo';
+import { withBase } from '../data/navigation';
 
 interface Props {
   title: string;
@@ -54,8 +55,8 @@ const fullTitle = pageTitle ?? `${title} | ${SITE.name}`;
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
 
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" href={withBase('/favicon.svg')} type="image/svg+xml" />
+    <link rel="apple-touch-icon" href={withBase('/apple-touch-icon.png')} />
     <meta name="theme-color" content="#e6007e" />
 
     <!-- Self-hosts Poppins and emits the preload hints for the latin subset. -->

@@ -102,6 +102,48 @@ test.describe('navigation', () => {
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
     await expect(toggle).toBeFocused();
   });
+
+  /**
+   * Regression guard for the first GitHub Pages deploy, which shipped every
+   * asset and internal link as a root-absolute path while the site was served
+   * from `/sweetcaroline/`, so all of them 404'd. This follows the links a
+   * visitor actually clicks and asserts they land on real pages.
+   */
+  test('every header nav link resolves to a real page', async ({ page, isMobile }) => {
+    await page.goto('/');
+
+    // The header renders two navs and hides one per breakpoint; open the mobile
+    // menu so its links are reachable on a phone viewport.
+    const name = isMobile ? /navegación principal móvil/i : /navegación principal$/i;
+    if (isMobile) {
+      await page.getByRole('button', { name: /menú/i }).click();
+    }
+    const nav = page.getByRole('navigation', { name });
+
+    const hrefs = await nav.getByRole('link').evaluateAll((links) =>
+      links.map((link) => link.getAttribute('href') ?? ''),
+    );
+    expect(hrefs.length).toBeGreaterThan(3);
+
+    for (const href of hrefs) {
+      const response = await page.request.get(href);
+      expect(response.status(), `nav link ${href} should resolve`).toBe(200);
+
+      const body = await response.text();
+      // A styled page links its stylesheet; an unstyled 404 shell does not.
+      expect(body, `nav link ${href} should be a real page`).toContain('<h1');
+    }
+  });
+
+  test('the cafeteria section links to the URL it is published at', async ({ page }) => {
+    // The section is published at `/en-cafeteria/`; a link to a slug-derived
+    // `/cafeteria/` would be a dead end.
+    await page.goto('/productos/categoria/tortas/');
+
+    const response = await page.request.get('/en-cafeteria/categoria/tartas/');
+    expect(response.status()).toBe(200);
+    await expect(page.locator('a[href$="/cafeteria/"]')).toHaveCount(0);
+  });
 });
 
 test.describe('layout integrity', () => {

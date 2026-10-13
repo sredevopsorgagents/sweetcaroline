@@ -1,8 +1,12 @@
 import { getCollection, type CollectionEntry } from 'astro:content';
+import { SECTIONS, sectionSegment, type SectionSlug } from '../data/navigation';
 
 export type Product = CollectionEntry<'products'>;
 export type Category = CollectionEntry<'categories'>;
-export type SectionSlug = 'productos' | 'cafeteria';
+
+// Re-exported so existing imports from this module keep working, but the type
+// itself is defined once in `data/navigation.ts` alongside the section table.
+export type { SectionSlug };
 
 export interface CategoryWithProducts {
   category: Category;
@@ -17,7 +21,12 @@ export interface SectionView {
   totalProducts: number;
 }
 
-const SECTION_SLUGS: SectionSlug[] = ['productos', 'cafeteria'];
+/**
+ * Derived from the section table rather than written out again. Hand-listing
+ * the slugs here is what let `cafeteria` drift away from the `en-cafeteria/`
+ * page directory.
+ */
+const SECTION_SLUGS: SectionSlug[] = SECTIONS.map((section) => section.slug);
 
 /** Alias kept so the ordering rule lives in one place for tests and pages. */
 export function compareProducts(a: Product, b: Product): number {
@@ -84,22 +93,35 @@ export async function getSectionView(section: SectionSlug): Promise<SectionView>
   };
 }
 
-/** Every (section, category) pair that has a page, for `getStaticPaths`. */
+/**
+ * Every (section, category) pair that has a page, for `getStaticPaths`.
+ *
+ * `segment` is the URL path segment (`en-cafeteria`), which is deliberately not
+ * the same as `section`, the frontmatter identifier (`cafeteria`). Keeping them
+ * distinct is what stops the data key from leaking into the public URL.
+ */
 export async function getCategoryRoutes(): Promise<
-  { section: SectionSlug; category: string; view: CategoryWithProducts }[]
+  {
+    section: SectionSlug;
+    segment: string;
+    category: string;
+    view: CategoryWithProducts;
+  }[]
 > {
-  const routes: { section: SectionSlug; category: string; view: CategoryWithProducts }[] = [];
+  const routes: {
+    section: SectionSlug;
+    segment: string;
+    category: string;
+    view: CategoryWithProducts;
+  }[] = [];
   for (const section of SECTION_SLUGS) {
     const view = await getSectionView(section);
+    const segment = sectionSegment(section);
     for (const entry of view.categories) {
-      routes.push({ section, category: entry.slug, view: entry });
+      routes.push({ section, segment, category: entry.slug, view: entry });
     }
   }
   return routes;
-}
-
-export function isSectionSlug(value: string): value is SectionSlug {
-  return (SECTION_SLUGS as string[]).includes(value);
 }
 
 export function findProduct(products: Product[], slug: string): Product | undefined {

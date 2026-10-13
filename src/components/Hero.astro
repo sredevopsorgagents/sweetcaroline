@@ -4,6 +4,7 @@ import Icon from './Icon.astro';
 import { requireImage } from '../lib/images';
 import { whatsappLink } from '../lib/site';
 import home from '../data/home.json';
+import { withBase } from '../data/navigation';
 
 /**
  * Home hero.
@@ -34,7 +35,7 @@ const extra = home.hero.slice(1);
 
       <div class="mt-8 flex flex-wrap gap-3">
         <a
-          href="/productos/"
+          href={withBase('/productos/')}
           class="bg-brand-500 hover:bg-brand-700 inline-flex items-center gap-2 rounded-full px-6 py-3 font-semibold text-white transition-colors"
         >
           Ver productos

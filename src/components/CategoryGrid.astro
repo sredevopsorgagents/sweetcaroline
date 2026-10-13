@@ -1,11 +1,12 @@
 ---
 import Photo from './Photo.astro';
 import Icon from './Icon.astro';
-import type { CategoryWithProducts } from '../lib/catalog';
+import type { CategoryWithProducts, SectionSlug } from '../lib/catalog';
 import { formatCount } from '../lib/catalog';
+import { sectionRoute } from '../data/navigation';
 
 interface Props {
-  section: 'productos' | 'cafeteria';
+  section: SectionSlug;
   categories: CategoryWithProducts[];
 }
 
@@ -17,7 +18,7 @@ const { section, categories } = Astro.props;
     categories.map(({ category, slug, name, products }) => (
       <li>
         <a
-          href={`/${section}/categoria/${slug}/`}
+          href={sectionRoute(section, 'categoria', slug)}
           class="group border-brand-line-soft hover:border-brand-line-strong focus-visible:border-brand-line-strong block overflow-hidden rounded-2xl border bg-white transition-colors"
         >
           <Photo

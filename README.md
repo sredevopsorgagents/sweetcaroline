@@ -145,11 +145,31 @@ escritorio y móvil, en cada corrida de tests.
 - Pull requests → type check, tests de unidad, build, e2e + accesibilidad
   (`.github/workflows/ci.yml`)
 
-Para desplegar en una URL de proyecto en vez del dominio raíz:
+El sitio se publica hoy en la **página de proyecto** del repositorio:
+`https://sredevopsorgagents.github.io/sweetcaroline/`. `deploy.yml` inyecta
+`SITE_URL` con esa URL, y `astro.config.mjs` **deriva `base` de su path**
+(`/sweetcaroline`) en lugar de fijarlo a mano.
+
+Esa derivación es deliberada: GitHub Pages sirve una página de proyecto bajo
+`/<repo>/`, y un build con `base: '/'` emite `/_astro/...` y enlaces como
+`/productos/` que apuntan por encima de la raíz publicada y devuelven 404 —es
+decir, el sitio se ve sin estilos, sin imágenes y con la navegación muerta. Al
+derivar `base` de `SITE_URL` los dos valores no pueden separarse.
+
+Para previsualizar localmente con la forma de una página de proyecto:
 
 ```bash
-SITE_URL=https://usuario.github.io BASE_PATH=/sweetcaroline-poc npm run build
+SITE_URL=https://sredevopsorgagents.github.io/sweetcaroline npm run build
 ```
+
+Para el dominio raíz, sin variables de entorno, el build por defecto ya es el
+correcto (`https://sweetcaroline.cl`, `base: '/'`). `BASE_PATH` existe sólo como
+escape hatch y tiene prioridad sobre la derivación.
+
+`tests/unit/deploy.test.ts` verifica el `dist/` construido: que ningún enlace o
+asset interno escape del `base`, que todos resuelvan a un archivo existente, que
+`robots.txt` apunte al sitemap del host correcto y que la sección de cafetería se
+publique en la URL que enlaza el menú.
 
 ## Limitaciones conocidas
 
@@ -158,5 +178,8 @@ SITE_URL=https://usuario.github.io BASE_PATH=/sweetcaroline-poc npm run build
 - 23 de 62 productos no tienen fotografía en WordPress y muestran una tarjeta de
   marca. Listados en `content-report.md`.
 - 2 productos no tienen descripción en el origen.
-- El repositorio que sirve el dominio raíz aún no está identificado; ver ADR 0003
-  antes de hacer el cutover.
+- `public/CNAME` no se publica, porque una página de proyecto no debe declarar un
+  dominio que no sirve. Debe **restaurarse antes del cutover** al dominio raíz;
+  ver ADR 0003.
+- El repositorio que sirve `sweetcaroline.cl` (un export estático de WordPress de
+  2024) aún no está identificado. Hasta resolverlo, producción no se toca.

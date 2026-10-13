@@ -3,10 +3,18 @@ import sitemap from '@astrojs/sitemap';
 import tailwindcss from '@tailwindcss/vite';
 
 // `SITE_URL` / `BASE_PATH` let one config serve both the project-page preview
-// (https://<owner>.github.io/sweetcaroline-poc) and the apex domain
+// (https://<owner>.github.io/sweetcaroline/) and the apex domain
 // (https://sweetcaroline.cl) without touching source.
 const site = process.env.SITE_URL ?? 'https://sweetcaroline.cl';
-const base = process.env.BASE_PATH ?? '/';
+
+// Default `base` to the path component of `site`, so a project-page deploy
+// cannot silently emit root-absolute asset URLs again. GitHub Pages serves a
+// project site under `/<repo>/`, and a build with `base: '/'` produces
+// `/_astro/...` paths that 404 there — every stylesheet, font, image and
+// internal link breaks. Deriving one from the other makes them impossible to
+// drift apart. An explicit `BASE_PATH` still wins for edge cases.
+const sitePath = new URL(site).pathname.replace(/\/$/, '');
+const base = process.env.BASE_PATH ?? (sitePath || '/');
 
 export default defineConfig({
   site,

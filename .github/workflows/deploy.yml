@@ -23,6 +23,11 @@ jobs:
       - uses: actions/checkout@v5
 
       - uses: withastro/action@v6
+        # The repo's Pages site is a project page at /sweetcaroline/, so the
+        # build must know its own public URL. `astro.config.mjs` derives `base`
+        # from this, which is what keeps asset URLs and canonicals correct.
+        env:
+          SITE_URL: https://sredevopsorgagents.github.io/sweetcaroline
         with:
           node-version: 22
           package-manager: npm@latest

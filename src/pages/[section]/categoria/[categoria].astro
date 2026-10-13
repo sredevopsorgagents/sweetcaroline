@@ -5,13 +5,14 @@ import PageHeader from '../../../components/PageHeader.astro';
 import ProductGrid from '../../../components/ProductGrid.astro';
 import ContactStrip from '../../../components/ContactStrip.astro';
 import Icon from '../../../components/Icon.astro';
-import { getCategoryRoutes, formatCount, isSectionSlug, type SectionSlug } from '../../../lib/catalog';
-import { SECTIONS } from '../../../data/navigation';
+import { getCategoryRoutes, formatCount, type SectionSlug } from '../../../lib/catalog';
+import { SECTIONS, sectionHref, sectionPath, sectionPathRoute } from '../../../data/navigation';
 
 export const getStaticPaths: GetStaticPaths = async () => {
   const routes = await getCategoryRoutes();
   return routes.map((route) => ({
-    params: { section: route.section, categoria: route.category },
+    // The URL segment comes from the section's `href`, not its data slug.
+    params: { section: route.segment, categoria: route.category },
     props: { view: route.view, section: route.section },
   }));
 };
@@ -23,20 +24,14 @@ interface Props {
 
 const { view, section } = Astro.props;
 
-// Guard: the dynamic segment must never resolve to something the site has no
-// section for. `getStaticPaths` only emits valid pairs, but this keeps a future
-// refactor from silently rendering a broken page.
-if (!isSectionSlug(section)) {
-  throw new Error(`Unknown section "${section}" for category route`);
-}
-
 const sectionMeta = SECTIONS.find((entry) => entry.slug === section);
 if (!sectionMeta) throw new Error(`Section metadata missing for "${section}"`);
 
 const trail = [
   { name: 'Inicio', path: '/' },
-  { name: sectionMeta.title, path: sectionMeta.href },
-  { name: view.name, path: `/${section}/categoria/${view.slug}/` },
+  // Trail paths are base-less: `Breadcrumbs` applies the base itself.
+  { name: sectionMeta.title, path: sectionPath(section) },
+  { name: view.name, path: sectionPathRoute(section, 'categoria', view.slug) },
 ];
 ---
 
@@ -59,7 +54,7 @@ const trail = [
 
     <p class="mt-10">
       <a
-        href={sectionMeta.href}
+        href={sectionHref(section)}
         class="text-brand-700 inline-flex items-center gap-1 font-semibold hover:underline"
       >
         <Icon name="chevron-left" size={16} />

@@ -378,9 +378,12 @@ function extractNosotrosSections(html) {
 }
 
 function renderNosotrosMarkdown({ intro, mission, vision }, images) {
-  // The source links "haciendo click aqui" to the cafetería section; keep that
-  // link working in the rebuilt site.
-  const withLinks = intro.replace(/haciendo click aqui/gi, '[haciendo click aquí](/en-cafeteria/)');
+  // The source links "haciendo click aqui" to the cafetería section. The link
+  // target is written relative to this page (`../en-cafeteria/`) rather than as
+  // a root-absolute path, because a root-absolute link would point above the
+  // deployed root on a GitHub Pages project site while a relative one resolves
+  // correctly under any base.
+  const withLinks = intro.replace(/haciendo click aqui/gi, '[haciendo click aquí](../en-cafeteria/)');
   const alt = (value) => `'${value.replace(/'/g, "''")}'`;
 
   const frontmatter = [

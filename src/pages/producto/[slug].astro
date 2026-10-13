@@ -9,6 +9,7 @@ import { getProducts, getVisibleCategories, productsInCategory, compareProducts 
 import { getImage } from '../../lib/images';
 import { buildProductPage } from '../../lib/seo';
 import { whatsappLink } from '../../lib/site';
+import { sectionPath, withBase } from '../../data/navigation';
 
 export async function getStaticPaths() {
   const products = await getProducts();
@@ -39,7 +40,9 @@ const sectionTitle = section === 'cafeteria' ? 'En cafetería' : 'Productos';
 
 const trail = [
   { name: 'Inicio', path: '/' },
-  { name: sectionTitle, path: `/${section}/` },
+  // The section's public path, not its data slug: interpolating the slug here
+  // produced a `/cafeteria/` breadcrumb that has no page.
+  { name: sectionTitle, path: sectionPath(section) },
   { name, path: `/producto/${product.id}/` },
 ];
 
@@ -152,7 +155,7 @@ const related = primaryCategory
               Consultar por WhatsApp
             </a>
             <a
-              href="/contacto/"
+              href={withBase('/contacto/')}
               class="border-brand-700 text-brand-700 hover:bg-brand-700 inline-flex items-center gap-2 rounded-full border-2 px-5 py-3 font-semibold transition-colors hover:text-white"
             >
               Ver contacto

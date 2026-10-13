@@ -7,7 +7,7 @@ import SectionHeading from '../components/SectionHeading.astro';
 import Icon from '../components/Icon.astro';
 import { requireImage } from '../lib/images';
 import { getSectionView } from '../lib/catalog';
-import { SECTIONS } from '../data/navigation';
+import { SECTIONS, sectionHref, withBase } from '../data/navigation';
 import { SITE, whatsappLink } from '../lib/site';
 import home from '../data/home.json';
 
@@ -43,7 +43,7 @@ const highlightImage = requireImage('hero/personaliza');
             <h3 class="text-brand-900 text-lg font-bold">{highlight.heading}</h3>
             <p class="text-ink-600 mt-2 flex-1">{highlight.body}</p>
             <a
-              href={highlight.href}
+              href={withBase(highlight.href)}
               class="text-brand-700 mt-4 inline-flex items-center gap-1 font-semibold hover:underline"
             >
               <span>{highlight.cta}</span>
@@ -72,7 +72,7 @@ const highlightImage = requireImage('hero/personaliza');
                 description={section.description}
               />
               <a
-                href={section.href}
+                href={sectionHref(section.slug)}
                 class="text-brand-700 inline-flex items-center gap-1 font-semibold hover:underline"
               >
                 <span>Ver todo</span>

@@ -2,6 +2,7 @@
 import Photo from './Photo.astro';
 import Icon from './Icon.astro';
 import type { Product } from '../lib/catalog';
+import { productHref } from '../data/navigation';
 
 interface Props {
   product: Product;
@@ -29,7 +30,7 @@ const primaryCategory = categories[0];
 
 <li>
   <a
-    href={`/producto/${product.id}/`}
+    href={productHref(product.id)}
     class="group border-brand-line-soft hover:border-brand-line-strong focus-visible:border-brand-line-strong flex h-full flex-col overflow-hidden rounded-2xl border bg-white transition-colors"
   >
     <div class="relative overflow-hidden">

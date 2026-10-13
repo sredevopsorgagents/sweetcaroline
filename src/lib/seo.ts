@@ -1,4 +1,5 @@
 import { SITE, ADDRESS, HOURS } from './site';
+import { withBase } from '../data/navigation';
 
 export interface Breadcrumb {
   name: string;
@@ -60,7 +61,9 @@ export function buildBreadcrumbs(trail: Breadcrumb[], site: URL | undefined) {
       '@type': 'ListItem',
       position: index + 1,
       name: item.name,
-      item: absoluteUrl(item.path, site),
+      // Trail paths are authored base-less; `absoluteUrl` resolves against
+      // `site`, which for a project page already carries the `/repo` prefix.
+      item: absoluteUrl(withBase(item.path), site),
     })),
   };
 }

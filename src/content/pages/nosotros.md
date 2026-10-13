@@ -13,7 +13,7 @@ images:
 
 Somos un taller de pastelería que elabora y comercializa pastelería fina con recetas internacionales. Producimos constantes tandas de productos para mantener la promesa de productos frescos. Nuestros procesos son artesanales, cuidadosamente realizados a mano.
 
-Durante 2025 abrimos con gran éxito nuestra pequeña terraza con servicio de cafetería te invitamos a visitar la sección de cafetería [haciendo click aquí](/en-cafeteria/).
+Durante 2025 abrimos con gran éxito nuestra pequeña terraza con servicio de cafetería te invitamos a visitar la sección de cafetería [haciendo click aquí](../en-cafeteria/).
 
 ## Misión
 

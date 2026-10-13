@@ -1,13 +1,16 @@
 ---
 import Icon from './Icon.astro';
 import type { Breadcrumb } from '../lib/seo';
+import { withBase } from '../data/navigation';
 
 interface Props {
   trail: Breadcrumb[];
 }
 
 const { trail } = Astro.props;
-const current = Astro.url.pathname;
+// `Astro.url.pathname` carries the deployment base; trail paths do not.
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const current = Astro.url.pathname.slice(base.length) || '/';
 ---
 
 <nav aria-label="Ruta de navegación" class="text-ink-600 text-sm">
@@ -25,7 +28,7 @@ const current = Astro.url.pathname;
                 {item.name}
               </span>
             ) : (
-              <a href={item.path} class="hover:text-brand-700 hover:underline">
+              <a href={withBase(item.path)} class="hover:text-brand-700 hover:underline">
                 {item.name}
               </a>
             )}
