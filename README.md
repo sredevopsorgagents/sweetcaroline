@@ -4,9 +4,10 @@ Sitio web de **Sweet Caroline**, pastelería fina y chocolatería en San Joaquí
 Santiago, Chile. Reemplaza el sitio WordPress/WPBakery anterior por un sitio estático,
 rápido y accesible.
 
-- **Producción:** https://www.sweetcaroline.cl (Sitio web oficial, out of scope for this repo)
-- **Fuente de contenido para éste sitio:** https://old.sweetcaroline.cl (WordPress)
-- **Éste sitio:** https://sredevopsorgagents.github.io/sweetcaroline/ (Github Pages)
+- **Producción:** https://www.sweetcaroline.cl (sitio oficial, fuera del alcance de este repo)
+- **Origen del contenido:** el WordPress configurado en `WORDPRESS_BASE_URL`
+  (`https://old.sweetcaroline.cl`) — se lee una sola vez, nunca en build
+- **Éste sitio:** https://sredevopsorgagents.github.io/sweetcaroline/ (GitHub Pages)
 
 ## Stack
 
@@ -23,7 +24,8 @@ rápido y accesible.
 
 ## Requisitos
 
-- Node.js **≥ 22.12** (el `engines` de Astro 7)
+- Node.js **≥ 22.12** (el `engines` de Astro 7; también es el piso de
+  `--env-file-if-exists`)
 - npm
 
 ## Empezar
@@ -31,6 +33,40 @@ rápido y accesible.
 ```bash
 npm install
 npm run dev          # http://localhost:4321
+```
+
+## Variables de entorno
+
+Nada se configura en runtime: todo se resuelve en build o al importar contenido.
+`astro.config.mjs` lee `SITE_URL` y `BASE_PATH`; `src/lib/indexing.ts` lee
+`ALLOW_INDEXING`; el importador lee `WORDPRESS_BASE_URL`.
+
+| Variable | Para qué | Por defecto | Requerida por |
+| --- | --- | --- | --- |
+| `WORDPRESS_BASE_URL` | Origen de la API REST de WordPress que siembra `src/content/**` | **ninguno** | `content:import`, `content:check` |
+| `SITE_URL` | URL pública de este build; de su path se deriva `base` | `https://sweetcaroline.cl` | `build`, `redirects` |
+| `BASE_PATH` | Escape hatch que anula el `base` derivado | path de `SITE_URL` | — (normalmente sin usar) |
+| `ALLOW_INDEXING` | `1` publica sitemap y `index, follow` | sin definir = bloqueado | `build` |
+
+Copia el archivo de ejemplo (`.env` está en `.gitignore`):
+
+```bash
+cp .env.example .env
+```
+
+Las variables del shell **tienen prioridad** sobre `.env`, así que un caso puntual
+se resuelve en línea:
+
+```bash
+WORDPRESS_BASE_URL=https://otro-origen.test npm run content:check
+```
+
+**`WORDPRESS_BASE_URL` no tiene valor por defecto, a propósito.** Un import sin
+configurar falla con un mensaje que dice qué hacer, antes de tocar la red, en vez
+de leer producción en silencio:
+
+```
+[import] WORDPRESS_BASE_URL is not set. Copy .env.example to .env, or pass --wp-base <origin>.
 ```
 
 ## Scripts
@@ -47,16 +83,28 @@ npm run dev          # http://localhost:4321
 | `npm run content:check` | Verifica el contenido sin escribir |
 | `npm run redirects` | Regenera los stubs de URLs antiguas |
 
+Los dos comandos de contenido cargan `.env` automáticamente
+(`node --env-file-if-exists=.env`), así que no hay que exportar nada a mano.
+
 ## Contenido
 
 El contenido se importa una sola vez desde la API REST de WordPress y se
 versiona en el repositorio. **El importador no se ejecuta nunca en CI**: necesita
-red y haría los builds no deterministas.
+red y haría los builds no deterministas. Por lo mismo `WORDPRESS_BASE_URL` no es
+un secreto de CI — no hay ningún job que lo use.
 
 ```
 npm run content:import                 # importación completa (baja imágenes)
 npm run content:import -- --no-images  # sólo datos, sin descargar imágenes
 npm run content:check                  # verifica sin escribir
+```
+
+El origen se resuelve en este orden: `--wp-base` → `WORDPRESS_BASE_URL` → error.
+`--wp-base` gana sobre `.env`, para apuntar a un clon o a un dump local sin editar
+el archivo:
+
+```bash
+npm run content:check -- --wp-base http://localhost:8080
 ```
 
 Escribe:
@@ -81,6 +129,10 @@ Reglas del importador:
 3. Los errores de tipeo, las descripciones faltantes y las fotos faltantes se
    reportan en `content-report.md`; no se corrigen solos.
 
+El campo `sourceUrl` de cada producto es **provenance**: registra de dónde salió
+ese contenido en la importación que ya ocurrió. No es configuración y no cambia al
+mover `WORDPRESS_BASE_URL`.
+
 Después de importar, revisar `content-report.md` y correr `npm test` — los tests
 de integridad de contenido fallan si una categoría no resuelve, si un producto
 queda fuera de toda sección o si una imagen referenciada no existe.
@@ -92,15 +144,24 @@ src/
   content.config.ts     esquemas Zod de las colecciones
   content/              contenido importado
   data/                 navegación, sitio, galería, URLs antiguas
-  lib/                  catalog.ts (agrupación), images.ts, seo.ts, site.ts
+  lib/                  catalog.ts (agrupación), images.ts, seo.ts, site.ts, indexing.ts
   layouts/BaseLayout    head, SEO, JSON-LD, header, footer
   components/           UI reutilizable
   pages/                rutas
   styles/global.css     tokens de marca
+scripts/
+  import-wordpress.mjs  importador (manual, con red)
+  wp-base.mjs           resolución de WORDPRESS_BASE_URL
+  emit-redirects.mjs    stubs de URLs históricas
+  generate-brand-assets.mjs
+tests/unit/             Vitest — catálogo, contenido, deploy, wp-base
+tests/e2e/              Playwright + axe
+docs/adr/               decisiones y su justificación
 ```
 
 Un solo artefacto desplegable (`dist/`). Sin servidor, sin base de datos, sin
-configuración en runtime. Ver `docs/adr/` para las decisiones y su justificación.
+configuración en runtime. Ver `docs/adr/` para las decisiones y su justificación,
+y [`AGENTS.md`](AGENTS.md) para la guía operativa del repositorio.
 
 ### Rutas
 
@@ -143,8 +204,11 @@ escritorio y móvil, en cada corrida de tests.
 ## Despliegue
 
 - `main` → build → GitHub Pages (`.github/workflows/deploy.yml`)
-- Pull requests → type check, tests de unidad, build, e2e + accesibilidad
+- Pull requests → type check, build, tests de unidad, e2e + accesibilidad
   (`.github/workflows/ci.yml`)
+
+El orden importa: en CI el **build va antes de los tests de unidad**, porque
+`tests/unit/deploy.test.ts` verifica el `dist/` construido.
 
 El sitio se publica hoy en la **página de proyecto** del repositorio:
 `https://sredevopsorgagents.github.io/sweetcaroline/`. `deploy.yml` inyecta
@@ -164,8 +228,7 @@ SITE_URL=https://sredevopsorgagents.github.io/sweetcaroline npm run build
 ```
 
 Para el dominio raíz, sin variables de entorno, el build por defecto ya es el
-correcto (`https://sweetcaroline.cl`, `base: '/'`). `BASE_PATH` existe sólo como
-escape hatch y tiene prioridad sobre la derivación.
+correcto (`https://sweetcaroline.cl`, `base: '/'`).
 
 `tests/unit/deploy.test.ts` verifica el `dist/` construido: que ningún enlace o
 asset interno escape del `base`, que todos resuelvan a un archivo existente, que
@@ -206,7 +269,7 @@ Eso restaura `index, follow`, el sitemap y la línea `Sitemap:` en `robots.txt`.
   marca. Listados en `content-report.md`.
 - 2 productos no tienen descripción en el origen.
 - `public/CNAME` no se publica, porque una página de proyecto no debe declarar un
-  dominio que no sirve. Debe **restaurarse antes del cutover** al dominio raíz;
-  ver ADR 0003.
+  dominio que no sirve. Debe **restaurarse antes del cutover** al dominio raíz,
+  junto con `ALLOW_INDEXING=1`; ver ADR 0003.
 - El repositorio que sirve `sweetcaroline.cl` (un export estático de WordPress de
   2024) aún no está identificado. Hasta resolverlo, producción no se toca.
