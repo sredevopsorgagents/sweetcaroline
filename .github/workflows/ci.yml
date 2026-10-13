@@ -29,11 +29,13 @@ jobs:
       - name: Type check
         run: npm run check
 
-      - name: Unit tests
-        run: npm test
-
+      # Before the tests: `tests/unit/deploy.test.ts` asserts against the built
+      # `dist/` (link integrity, base paths, robots/sitemap), so it needs it.
       - name: Build
         run: npm run build
+
+      - name: Unit tests
+        run: npm test
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium

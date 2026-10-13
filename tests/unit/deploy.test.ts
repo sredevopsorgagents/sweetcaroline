@@ -27,6 +27,9 @@ const hasDist = existsSync(path.join(DIST, 'index.html'));
 
 /** Every `.html` file under `dist/`, as paths relative to `dist/`. */
 function htmlFiles(dir = DIST, acc: string[] = []): string[] {
+  // Returns empty rather than throwing when `dist/` is absent, so the suite can
+  // skip cleanly on a fresh clone.
+  if (!existsSync(dir)) return acc;
   for (const entry of readdirSync(dir)) {
     const full = path.join(dir, entry);
     if (statSync(full).isDirectory()) {
