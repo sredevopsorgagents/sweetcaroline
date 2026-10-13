@@ -48,8 +48,22 @@ Reorder the pipeline in a new side-effect-free module, `scripts/html-text.mjs`:
 2. **Decode entities exactly once, at the very end** — with `&amp;` **last**, so
    no replacement's output is ever re-scanned by a later one.
 
+Both multi-character removals are **repeated until the string stops changing**,
+which is the fix CodeQL documents for `js/incomplete-multi-character-sanitization`.
+For the tag-removal pass this is belt and braces rather than a behavioural fix —
+the class excludes `<`, so one pass already converges on every input, and
+repeating it was verified output-identical. For the element-removal pass it is
+load-bearing: a single pass over `<(script|style)\b[^>]*>…` can be defeated by a
+nested angle bracket in the attribute region.
+
 Pinning the order makes the sanitization sound *by construction*: no step that
 runs after the tags are gone can introduce a `<`.
+
+Note that the element removal is retained rather than deleted, even though it is
+the pattern the analyzer objects to. Deleting it would still leave no tag in the
+output, but it would leak element *contents* into the copy — `<style>p{color:red}</style><p>Texto</p>`
+would yield `p{color:red}Texto` instead of `Texto`. That is a content-corruption
+regression, so the pattern stays and is made defeat-proof instead.
 
 `decodeEntities`, `htmlToText` and `stripShortcodes` moved into that module
 because `import-wordpress.mjs` executes its whole body at module scope —

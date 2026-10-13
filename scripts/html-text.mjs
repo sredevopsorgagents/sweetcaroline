@@ -63,13 +63,28 @@ export function htmlToText(html) {
   if (!html) return '';
 
   // 1. Drop script/style ELEMENTS whole, so their contents never reach the text.
-  let text = html.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '');
+  //    Repeated until the string stops changing: a single pass can be defeated
+  //    by nested elements, and re-running the pattern is the documented fix for
+  //    CodeQL `js/incomplete-multi-character-sanitization`. The loop is bounded
+  //    in practice because each pass strictly shortens the string.
+  let text = html;
+  let previous;
+  do {
+    previous = text;
+    text = text.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '');
+  } while (text !== previous);
   // 2. Turn line/paragraph boundaries into newlines before tags disappear.
   text = text.replace(/<br\s*\/?>/gi, '\n');
   text = text.replace(/<\/(p|div|li|h[1-6]|figure|figcaption)\s*>/gi, '\n\n');
-  // 3. Remove the remaining tags. The class excludes `<`, so a single pass
-  //    cannot be defeated by nested angle brackets (`<scr<script>ipt>`).
-  text = text.replace(/<[^>]*>/g, '');
+  // 3. Remove the remaining tags, also repeated until stable. The class
+  //    excludes `<`, so one pass already converges on every input — but
+  //    re-running it is what makes that property evident to a static analyzer
+  //    (CodeQL `js/incomplete-multi-character-sanitization`), and it costs
+  //    one extra scan of an already-short string.
+  do {
+    previous = text;
+    text = text.replace(/<[^>]*>/g, '');
+  } while (text !== previous);
   // 4. Belt and braces: no angle bracket from the source survives, so nothing
   //    above this line can be reconstructed by the decode below.
   text = text.replace(/<|>/g, '');

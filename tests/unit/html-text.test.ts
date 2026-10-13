@@ -137,6 +137,20 @@ describe('htmlToText', () => {
         expect(htmlToText(input)).not.toMatch(/[<>]/);
       }
     });
+
+    // The strippers run until the string stops changing. If someone reduces
+    // either to a single pass again, these fail.
+    it('resists a tag hidden behind a nested angle bracket in an attribute', () => {
+      expect(htmlToText('<script<div>>alert(1)</script>')).not.toMatch(/<\/?[a-z]/i);
+      expect(htmlToText('<script a=">">alert(1)</script>')).not.toMatch(/<\/?[a-z]/i);
+    });
+
+    it('drops element contents rather than leaking them as text', () => {
+      // Deleting the element stripper would still remove the tags but leak the
+      // contents — a content-corruption regression, not just a cosmetic one.
+      expect(htmlToText('<p>A</p><script>var x=1;</script><p>B</p>')).toBe('A\n\nB');
+      expect(htmlToText('<style>p{color:red}</style><p>Texto</p>')).toBe('Texto');
+    });
   });
 
   // The fix reorders the pipeline. If it also changed the output for real
