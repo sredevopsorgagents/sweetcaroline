@@ -2,10 +2,13 @@
 /**
  * Import Sweet Caroline content from the WordPress REST API.
  *
- * The site at old.sweetcaroline.cl is the authoritative content source. This
- * script reads it once and writes plain, typed, committed content into the
- * repository. It is deliberately NOT part of the build: it needs the network,
- * so running it there would make builds non-deterministic.
+ * The WordPress origin is the authoritative content source. This script reads it
+ * once and writes plain, typed, committed content into the repository. It is
+ * deliberately NOT part of the build: it needs the network, so running it there
+ * would make builds non-deterministic.
+ *
+ * The origin comes from `WORDPRESS_BASE_URL` (see `.env.example`); there is no
+ * default, so an unconfigured run fails before it touches the network.
  *
  *   node scripts/import-wordpress.mjs            # full import (writes files)
  *   node scripts/import-wordpress.mjs --check    # verify only, writes nothing
@@ -26,6 +29,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
+import { resolveWpBase } from './wp-base.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -36,11 +40,21 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const argv = process.argv.slice(2);
 const checkOnly = argv.includes('--check');
 const skipImages = argv.includes('--no-images');
-const wpBase = readFlag('--wp-base') ?? 'https://old.sweetcaroline.cl';
 
 function readFlag(name) {
   const i = argv.indexOf(name);
   return i >= 0 ? argv[i + 1] : undefined;
+}
+
+// Resolve the origin up front: throwing here (rather than at the first request)
+// keeps a misconfigured run from reaching the network or writing a partial
+// `content-report.md`.
+let wpBase;
+try {
+  wpBase = resolveWpBase({ flag: readFlag('--wp-base') });
+} catch (error) {
+  process.stderr.write(`[import] ${error.message}\n`);
+  process.exit(1);
 }
 
 // ---------------------------------------------------------------------------

@@ -15,8 +15,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "content:import": "node scripts/import-wordpress.mjs",
-    "content:check": "node scripts/import-wordpress.mjs --check",
+    "content:import": "node --env-file-if-exists=.env scripts/import-wordpress.mjs",
+    "content:check": "node --env-file-if-exists=.env scripts/import-wordpress.mjs --check",
     "redirects": "node scripts/emit-redirects.mjs"
   },
   "dependencies": {

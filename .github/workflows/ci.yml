@@ -26,6 +26,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # No WORDPRESS_BASE_URL here on purpose: the content importer needs the
+      # network and would make builds non-deterministic, so it is never run in
+      # CI. The committed content under src/content/ is the build input.
+
       - name: Type check
         run: npm run check
 

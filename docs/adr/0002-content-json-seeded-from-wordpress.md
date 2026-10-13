@@ -18,9 +18,14 @@ dynamic behaviour that needs to read content at request time.
 Content lives in the repository as typed JSON and Markdown, validated by Zod
 schemas in `src/content.config.ts`. It is seeded once by
 `scripts/import-wordpress.mjs`, which reads the WordPress REST API and is **run
-manually, never in CI** — it needs the network, and making the build depend on
-`old.sweetcaroline.cl` would make builds non-deterministic and fragile (the
-origin resets connections under load).
+manually, never in CI** — it needs the network, and making the build depend on a
+live origin would make builds non-deterministic and fragile (the origin resets
+connections under load).
+
+That origin is supplied as `WORDPRESS_BASE_URL` (resolved by
+`scripts/wp-base.mjs`, overridable per run with `--wp-base`). It deliberately has
+no default: a misconfigured import must fail before it reaches the network rather
+than quietly read production.
 
 The importer normalises only markup, HTML entities and whitespace. It never
 rewrites, corrects or invents copy. Gaps and typos are reported to the client in
