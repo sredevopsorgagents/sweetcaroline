@@ -69,6 +69,12 @@ their `noindex` directive.
   The origin of that deployment must be identified before cutover, and
   `public/CNAME` restored. Until then the project page is the deployment target
   and production is untouched. Cutover is a deliberate, separate step.
+- **Unlisted by default:** the served build is a client preview on a public URL,
+  so it is de-indexed on every channel (per-page `noindex` meta and
+  `X-Robots-Tag`, a blanket `Disallow: /` in `robots.txt` naming AI and archive
+  crawlers, and no sitemap). This is recorded as its own decision in
+  [ADR 0004](0004-unlisted-preview-by-default.md); `ALLOW_INDEXING=1` reverses it
+  at cutover.
 
 ## Alternatives considered
 

@@ -62,14 +62,31 @@ test.describe('critical journeys', () => {
     expect(body).toContain('http-equiv="refresh"');
     expect(body).toContain(`url=${target}`);
     expect(body).toContain(`rel="canonical" href="${target}"`);
-    // Stubs must not compete with the real page in search results.
-    expect(body).toContain('noindex, follow');
+    // Stubs must not compete with the real page in search results. While the
+    // preview is unlisted the stub is blocked outright (`noindex, nofollow`);
+    // an indexing-enabled build relaxes only the follow half.
+    expect(body).toMatch(/<meta name="robots" content="noindex[^"]*">/);
   });
 
   test('the redirect target actually exists', async ({ request }) => {
     const response = await request.get('/producto/macarons-de-chocolate/');
     expect(response.status()).toBe(200);
     expect(await response.text()).toMatch(/Macarons/i);
+  });
+
+  test('every published page carries a noindex directive', async ({ page, request }) => {
+    // The preview is public but must stay unlisted. robots.txt is advisory, so
+    // the per-page directive is the load-bearing one; assert it end-to-end.
+    for (const route of MAIN_ROUTES.map((r) => r.path)) {
+      await page.goto(route);
+      const content = await page
+        .locator('meta[name="robots"]')
+        .getAttribute('content');
+      expect(content, `${route} should be noindex`).toContain('noindex');
+    }
+
+    const robots = await request.get('/robots.txt');
+    expect(await robots.text()).toMatch(/User-agent: \*\s*\nDisallow: \//);
   });
 
   test('renders a 404 page for an unknown path', async ({ page }) => {

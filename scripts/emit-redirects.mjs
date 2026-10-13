@@ -34,6 +34,9 @@ const sitePath = (() => {
 const base = (process.env.BASE_PATH ?? sitePath) || '';
 const prefix = base === '/' ? '' : base;
 
+// Mirrors src/lib/indexing.ts: blocking is the default.
+const allowIndexing = process.env.ALLOW_INDEXING === '1';
+
 /** Escape a string for safe interpolation into HTML text/attribute context. */
 const escapeHtml = (value) =>
   value
@@ -51,13 +54,21 @@ function stub(to) {
   const safe = escapeHtml(target);
   // The visible link is an absolute path, so it needs the base explicitly.
   const safeTo = escapeHtml(`${prefix}${to}`);
+
+  // Mirrors src/lib/indexing.ts. `nofollow` rather than `follow`: while the
+  // preview must stay unlisted, a stub should not send crawlers onward either.
+  const robots = allowIndexing
+    ? 'noindex, follow'
+    : 'noindex, nofollow, noarchive, nosnippet, noimageindex';
+
   return `<!doctype html>
 <html lang="es-CL">
   <head>
     <meta charset="utf-8">
     <title>Redirigiendo… | Sweet Caroline</title>
     <link rel="canonical" href="${safe}">
-    <meta name="robots" content="noindex, follow">
+    <meta name="robots" content="${robots}">
+    <meta http-equiv="X-Robots-Tag" content="${robots}">
     <meta http-equiv="refresh" content="0; url=${safe}">
     <meta name="viewport" content="width=device-width, initial-scale=1">
   </head>

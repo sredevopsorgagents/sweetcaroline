@@ -171,6 +171,32 @@ asset interno escape del `base`, que todos resuelvan a un archivo existente, que
 `robots.txt` apunte al sitemap del host correcto y que la sección de cafetería se
 publique en la URL que enlaza el menú.
 
+### Indexación
+
+El sitio **no debe ser indexado**: es un POC público en revisión, y público no es
+lo mismo que encontrable. El bloqueo es el valor por defecto y cubre varias vías,
+porque ninguna sola alcanza:
+
+| Vía | Mecanismo |
+| --- | --- |
+| `robots.txt` | `Disallow: /` para `*` y para los crawlers de IA/archivado nombrados |
+| Cada página | `<meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">` |
+| Cada página | El mismo valor como `<meta http-equiv="X-Robots-Tag">` (GitHub Pages no permite cabeceras reales) |
+| Sitemap | No se emite: un sitemap es una invitación a crawlear |
+| Stubs de redirección | `noindex, nofollow` en lugar de `noindex, follow` |
+
+`robots.txt` es sólo una sugerencia y algunos robots lo ignoran; por eso la
+directiva por página es la que sostiene la política. Ver `src/lib/indexing.ts`.
+
+Para indexar un build (por ejemplo en el cutover al dominio raíz):
+
+```bash
+ALLOW_INDEXING=1 npm run build
+```
+
+Eso restaura `index, follow`, el sitemap y la línea `Sitemap:` en `robots.txt`.
+`tests/unit/deploy.test.ts` y la suite e2e verifican ambas ramas.
+
 ## Limitaciones conocidas
 
 - El contenido es sólo lectura para el cliente: editarlo requiere un commit.

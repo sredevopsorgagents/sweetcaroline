@@ -129,16 +129,74 @@ describeIfBuilt('built output integrity', () => {
     expect(existsSync(path.join(DIST, 'cafeteria'))).toBe(false);
   });
 
-  it('points robots.txt at the sitemap on the deployed host', () => {
+  it('points robots.txt at the sitemap on the deployed host when indexing is allowed', () => {
     const robots = readFileSync(path.join(DIST, 'robots.txt'), 'utf8');
     const sitemap = /Sitemap: (\S+)/.exec(robots)?.[1] ?? '';
     const home = readFileSync(path.join(DIST, 'index.html'), 'utf8');
     const canonical = /<link rel="canonical" href="([^"]+)"/.exec(home)?.[1] ?? '';
+    const indexingAllowed = !/noindex/.test(
+      /<meta name="robots" content="([^"]+)"/.exec(home)?.[1] ?? '',
+    );
+
+    if (!indexingAllowed) {
+      // A blocked build must not advertise a sitemap: the two contradict, and
+      // the sitemap is itself a crawl invitation.
+      expect(robots).not.toMatch(/Sitemap:/);
+      return;
+    }
 
     // The sitemap URL must sit under the same base the site is served from.
     const canonicalDir = new URL('.', canonical).pathname;
     expect(sitemap.endsWith('sitemap-index.xml')).toBe(true);
     expect(sitemap.startsWith(new URL(canonicalDir, new URL(canonical).origin).href)).toBe(true);
+  });
+
+  it('tells every crawler not to index any page', () => {
+    const home = readFileSync(path.join(DIST, 'index.html'), 'utf8');
+    const robotsMeta = /<meta name="robots" content="([^"]+)"/.exec(home)?.[1] ?? '';
+    const indexingAllowed = !/noindex/.test(robotsMeta);
+
+    // When indexing is explicitly allowed this expectation is inverted; the
+    // default (and the deployed preview) is blocked.
+    if (indexingAllowed) {
+      expect(robotsMeta).toContain('index');
+      return;
+    }
+
+    const offenders: string[] = [];
+    for (const file of files) {
+      const html = readFileSync(path.join(DIST, file), 'utf8');
+      const meta = /<meta name="robots" content="([^"]+)"/.exec(html)?.[1];
+      if (!meta || !meta.includes('noindex')) offenders.push(file);
+    }
+
+    // No page may escape the policy — including 404.html and redirect stubs.
+    expect(offenders.slice(0, 20)).toEqual([]);
+  });
+
+  it('sends the noindex directive through both the meta and http-equiv forms', () => {
+    // GitHub Pages cannot set response headers, so the header directive is only
+    // expressible as a meta tag; emit it so crawlers that key on
+    // `X-Robots-Tag` (rather than `robots`) are covered too.
+    const home = readFileSync(path.join(DIST, 'index.html'), 'utf8');
+    if (!/noindex/.test(home)) return;
+
+    expect(home).toMatch(/<meta http-equiv="X-Robots-Tag" content="[^"]*noindex/);
+    expect(home).toMatch(/<meta name="googlebot" content="[^"]*noindex/);
+  });
+
+  it('blocks robots.txt for every agent while the preview is unlisted', () => {
+    const robots = readFileSync(path.join(DIST, 'robots.txt'), 'utf8');
+    if (!/Disallow: \//.test(robots)) return;
+
+    // The wildcard must be disallowed, and the named AI/archive crawlers too,
+    // since some ignore a bare `User-agent: *` group they parse oddly.
+    expect(robots).toMatch(/User-agent: \*\s*\nDisallow: \//);
+    for (const agent of ['GPTBot', 'ClaudeBot', 'PerplexityBot', 'CCBot', 'Google-Extended']) {
+      expect(robots, `${agent} should be disallowed`).toMatch(
+        new RegExp(`User-agent: ${agent}\\s*\\nDisallow: /`),
+      );
+    }
   });
 
   it('points legacy redirect stubs at a URL under the deployed base', () => {

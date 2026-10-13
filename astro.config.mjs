@@ -16,6 +16,11 @@ const site = process.env.SITE_URL ?? 'https://sweetcaroline.cl';
 const sitePath = new URL(site).pathname.replace(/\/$/, '');
 const base = process.env.BASE_PATH ?? (sitePath || '/');
 
+// Indexing policy, mirroring `src/lib/indexing.ts`. A sitemap is an explicit
+// invitation to crawl, so while the preview is meant to stay unlisted the
+// sitemap lists nothing. Set `ALLOW_INDEXING=1` at cutover to publish it.
+const allowIndexing = process.env.ALLOW_INDEXING === '1';
+
 export default defineConfig({
   site,
   base,
@@ -31,9 +36,11 @@ export default defineConfig({
   },
   integrations: [
     sitemap({
-      // The legacy redirect stubs written by scripts/emit-redirects.mjs carry
-      // `noindex, follow`; listing them would contradict that.
-      filter: (page) => !page.includes('/nuestros-productos/') && !page.endsWith('/galeria/'),
+      // Legacy redirect stubs written by scripts/emit-redirects.mjs carry
+      // `noindex, follow`; listing them would contradict that. And while the
+      // preview must stay unlisted, the sitemap lists nothing at all.
+      filter: (page) =>
+        allowIndexing && !page.includes('/nuestros-productos/') && !page.endsWith('/galeria/'),
     }),
   ],
   // Poppins is the existing brand typeface (the WordPress theme loads it from

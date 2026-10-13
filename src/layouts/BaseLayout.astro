@@ -9,6 +9,7 @@ import Footer from '../components/Footer.astro';
 import { SITE, addressLine } from '../lib/site';
 import { absoluteUrl, buildLocalBusiness, buildBreadcrumbs, type Breadcrumb } from '../lib/seo';
 import { withBase } from '../data/navigation';
+import { ROBOTS_CONTENT, X_ROBOTS_TAG } from '../lib/indexing';
 
 interface Props {
   title: string;
@@ -54,6 +55,16 @@ const fullTitle = pageTitle ?? `${title} | ${SITE.name}`;
     <title>{fullTitle}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
+
+    <!--
+      Indexing policy. The preview is public but must not be findable; see
+      src/lib/indexing.ts. Both the `robots` meta and the `X-Robots-Tag`
+      http-equiv form are emitted, because crawlers and crawler-adjacent tools
+      honour different ones and GitHub Pages cannot send real response headers.
+    -->
+    <meta name="robots" content={ROBOTS_CONTENT} />
+    <meta name="googlebot" content={ROBOTS_CONTENT} />
+    <meta http-equiv="X-Robots-Tag" content={X_ROBOTS_TAG} />
 
     <link rel="icon" href={withBase('/favicon.svg')} type="image/svg+xml" />
     <link rel="apple-touch-icon" href={withBase('/apple-touch-icon.png')} />
