@@ -20,8 +20,8 @@ src/layouts/            BaseLayout.astro — head, SEO, JSON-LD, header, footer
 src/components/         reusable UI
 src/pages/              routes
 src/styles/global.css   brand tokens
-scripts/                import-wordpress.mjs, wp-base.mjs, emit-redirects.mjs, generate-brand-assets.mjs
-tests/unit/             Vitest — catalog, content, deploy integrity, wp-base
+scripts/                import-wordpress.mjs, wp-base.mjs, html-text.mjs, emit-redirects.mjs, generate-brand-assets.mjs
+tests/unit/             Vitest — catalog, content, deploy integrity, wp-base, html-text
 tests/e2e/              Playwright + axe-core
 docs/adr/               architecture decision records
 ```

@@ -31,6 +31,12 @@ The importer normalises only markup, HTML entities and whitespace. It never
 rewrites, corrects or invents copy. Gaps and typos are reported to the client in
 `content-report.md`.
 
+The exact ordering of that normalisation is load-bearing — markup is stripped
+before entities are decoded, and `&amp;` is decoded last — because getting it
+wrong silently corrupts copy. ADR 0005 records those rules and the CodeQL alerts
+that prompted them; `scripts/html-text.mjs` implements them and
+`tests/unit/html-text.test.ts` pins them.
+
 ## Consequences
 
 **Positive**

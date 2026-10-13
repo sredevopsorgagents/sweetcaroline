@@ -30,6 +30,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 import { resolveWpBase } from './wp-base.mjs';
+// Text normalisation lives in its own side-effect-free module so it can be
+// tested directly — see the header of `html-text.mjs` for why.
+import { decodeEntities, htmlToText, stripShortcodes } from './html-text.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -228,42 +231,12 @@ async function mapLimit(items, limit, worker) {
 
 // ---------------------------------------------------------------------------
 // Text helpers — normalisation only, never editorialising.
+//
+// `decodeEntities`, `htmlToText` and `stripShortcodes` live in
+// `scripts/html-text.mjs`, which has no side effects and is therefore unit
+// tested directly (`tests/unit/html-text.test.ts`). Their ordering rules
+// (structure before entities, `&amp;` last) are documented there.
 // ---------------------------------------------------------------------------
-
-const decodeEntities = (s) =>
-  s
-    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
-    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&hellip;/g, '…')
-    .replace(/&#8211;|&ndash;/g, '–')
-    .replace(/&#8217;|&rsquo;/g, '’')
-    .replace(/&#8220;|&ldquo;/g, '“')
-    .replace(/&#8221;|&rdquo;/g, '”')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#0?39;|&apos;/g, "'");
-
-/** Turn an HTML fragment into normalised plain text, preserving paragraphs. */
-function htmlToText(html) {
-  if (!html) return '';
-  let text = decodeEntities(html);
-  text = text.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, '');
-  text = text.replace(/<br\s*\/?>/gi, '\n');
-  text = text.replace(/<\/(p|div|li|h[1-6]|figure|figcaption)>/gi, '\n\n');
-  text = text.replace(/<[^>]+>/g, '');
-  return text
-    .split('\n')
-    .map((line) => line.replace(/[^\S\n]+/g, ' ').trim())
-    .join('\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
-
-/** Strip WPBakery / shortcode noise: `[vc_row ...]`, `[/vc_column]`. */
-const stripShortcodes = (s) => s.replace(/\[\/?[a-z_][^\]]*\]/gi, ' ');
 
 const slugify = (s) =>
   s
