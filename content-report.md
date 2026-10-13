@@ -1,7 +1,7 @@
 # Informe de contenido — importación desde WordPress
 
 Generado por `scripts/import-wordpress.mjs` el 2026-10-13
-desde `https://old.sweetcaroline.cl` en 4.2 s.
+desde `https://old.sweetcaroline.cl` en 20.6 s.
 
 El importador **no corrige ni reescribe textos**: solo normaliza HTML, entidades
 y espacios. Todo lo que sigue requiere una decisión del cliente.
