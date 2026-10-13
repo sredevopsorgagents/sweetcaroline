@@ -1,11 +1,12 @@
-# Sweet Caroline — sitio web
+# Sweet Caroline — PoC sitio web
 
 Sitio web de **Sweet Caroline**, pastelería fina y chocolatería en San Joaquín,
-Santiago. Reemplaza el sitio WordPress/WPBakery anterior por un sitio estático,
+Santiago, Chile. Reemplaza el sitio WordPress/WPBakery anterior por un sitio estático,
 rápido y accesible.
 
-- **Producción:** https://sweetcaroline.cl
-- **Fuente de contenido histórica:** https://old.sweetcaroline.cl (WordPress)
+- **Producción:** https://www.sweetcaroline.cl (Sitio web oficial, out of scope for this repo)
+- **Fuente de contenido para éste sitio:** https://old.sweetcaroline.cl (WordPress)
+- **Éste sitio:** https://sredevopsorgagents.github.io/sweetcaroline/ (Github Pages)
 
 ## Stack
 
