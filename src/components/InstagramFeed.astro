@@ -1,0 +1,153 @@
+---
+/**
+ * The official Instagram embeds for the homepage feed.
+ *
+ * Instagram's embed script replaces each `<blockquote class="instagram-media">`
+ * with a cross-origin `<iframe>`; it never renders a full profile at once, so
+ * one blockquote per post is the whole of the integration. The anchor inside
+ * each blockquote is also the no-JavaScript fallback: with the script blocked
+ * or offline, it degrades to a plain link to that post.
+ *
+ * Two quirks of `embed.js` are handled here rather than left to the visitor:
+ *
+ * - It creates its iframes with no `title`, which is an axe `frame-title`
+ *   violation. `title` is an attribute, not rendered content, so it can be set
+ *   on the cross-origin frame from this page.
+ * - It styles the frame `position: absolute; width: 100%`. With no positioned
+ *   ancestor, that 100% resolves against the viewport, not the list item, so the
+ *   frame is ~32px wider than its column and the page overflows sideways on a
+ *   phone. Each embed therefore gets a `position: relative` wrapper sized to the
+ *   column, which is the containing block the absolute frame is measured
+ *   against.
+ * - It *removes* the blockquote when it converts it, and Instagram sometimes
+ *   serves its embed endpoint `x-frame-options: DENY`, which leaves a 2px-tall
+ *   empty frame where a post should be. Because the blockquote is not a reliable
+ *   fallback, every post also keeps a plain link of its own, outside the markup
+ *   Instagram rewrites.
+ *
+ * The script is only requested when there is at least one post, so a build
+ * with an empty feed loads nothing from Instagram.
+ */
+import { INSTAGRAM, INSTAGRAM_POST_PATTERN, postAccount } from '../data/instagram';
+
+interface Props {
+  posts: string[];
+  /** Posts shown on behalf of another account, labelled with its handle. */
+  guestPosts?: string[];
+}
+
+const { posts, guestPosts = [] } = Astro.props;
+
+// Fail the build rather than emit an embed Instagram cannot resolve. The
+// message names the offending entry so the fix is obvious.
+const invalid = [...posts, ...guestPosts].filter((url) => !INSTAGRAM_POST_PATTERN.test(url));
+if (invalid.length > 0) {
+  throw new Error(
+    `src/data/instagram.json: permalinks must be individual posts or Reels ` +
+      `(https://www.instagram.com/p/<id>/, /reel/<id>/, or the same with ` +
+      `/<account>/ in front). Invalid: ${invalid.join(', ')}`,
+  );
+}
+
+const entries = [...posts, ...guestPosts].map((url) => ({
+  url,
+  account: postAccount(url),
+  guest: postAccount(url) !== INSTAGRAM.profile,
+}));
+---
+
+<ul class="flex flex-col gap-8">
+  {
+    entries.map((entry) => (
+      <li>
+        {entry.guest && (
+          <p class="text-ink-600 mb-2 text-sm">
+            Publicación de{' '}
+            <a
+              href={`https://www.instagram.com/${entry.account}/`}
+              class="text-brand-700 font-semibold hover:underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              @{entry.account}
+            </a>
+          </p>
+        )}
+        <div class="embed">
+          <blockquote
+            class="instagram-media"
+            data-instgrm-permalink={entry.url}
+            data-instgrm-version="14"
+            style="background:#FFF; border:0; border-radius:3px; box-shadow:0 0 1px 0 rgba(0,0,0,0.5),0 1px 10px 0 rgba(0,0,0,0.15); margin:0; min-width:0; max-width:540px; padding:0; width:100%;"
+          >
+            <a href={entry.url} target="_blank" rel="noopener noreferrer">
+              Ver esta publicación en Instagram
+            </a>
+          </blockquote>
+        </div>
+        <p class="mt-2">
+          <a
+            href={entry.url}
+            class="text-brand-700 text-sm font-semibold hover:underline"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Ver publicación en Instagram ↗
+          </a>
+        </p>
+      </li>
+    ))
+  }
+</ul>
+
+{
+  entries.length > 0 && (
+    <script is:inline async src="https://www.instagram.com/embed.js" />
+  )
+}
+
+<script>
+  // `embed.js` inserts the iframes asynchronously, and again whenever it (re)
+  // processes a blockquote, so label each one as it appears. `title` is an
+  // attribute, not rendered content, so it can be set from this origin even
+  // though the frame itself is cross-origin.
+  const LABEL = 'Publicación de Instagram de Sweet Caroline';
+
+  const labelFrames = (root: ParentNode) => {
+    for (const frame of root.querySelectorAll('iframe.instagram-media')) {
+      if (!frame.getAttribute('title')) frame.setAttribute('title', LABEL);
+    }
+  };
+
+  labelFrames(document);
+
+  new MutationObserver((records) => {
+    for (const record of records) {
+      for (const node of record.addedNodes) {
+        if (!(node instanceof Element)) continue;
+        if (node.matches('iframe.instagram-media')) {
+          node.setAttribute('title', LABEL);
+        } else {
+          labelFrames(node);
+        }
+      }
+    }
+  }).observe(document.body, { childList: true, subtree: true });
+
+  // The embed script may finish before this observer starts.
+  window.addEventListener('load', () => labelFrames(document));
+</script>
+
+<style>
+  /*
+   * The containing block for Instagram's absolutely-positioned frame. It is
+   * sized to the column (never the viewport), and `min-width: 0` lets it shrink
+   * below the frame's own 326px floor instead of being dragged wider than the
+   * page.
+   */
+  .embed {
+    position: relative;
+    min-width: 0;
+    max-width: 540px;
+  }
+</style>
