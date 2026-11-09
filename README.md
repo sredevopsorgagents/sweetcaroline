@@ -116,7 +116,7 @@ src/content/pages/*.md         nosotros, en-cafeteria
 src/data/site.json             contacto, horarios, dirección
 src/data/home.json             hero y destacados (procedencia, sin uso)
 src/data/gallery.json          galería
-src/data/instagram.json        feed de la portada: posts + fallback local
+src/data/instagram.json        cuenta de Instagram y foto para metadatos
 src/data/legacy-urls.json      URLs antiguas -> portada
 src/assets/**                  imágenes normalizadas a WebP
 content-report.md              informe para el cliente
@@ -168,7 +168,7 @@ y [`AGENTS.md`](AGENTS.md) para la guía operativa del repositorio.
 
 | Ruta | Página |
 | --- | --- |
-| `/` | Portada: feed de Instagram |
+| `/` | Portada: llamada a la acción a Instagram |
 | `/nosotros/` | Quiénes somos, misión, visión |
 | `/contacto/` | Contacto, horarios, mapa |
 | `/404` | No encontrado |
@@ -181,125 +181,40 @@ Las URLs históricas de WordPress (`/nuestros-productos/...`, `/galeria/`) sigue
 resolviendo mediante stubs con `meta refresh` + `canonical`; ahora todas apuntan a
 la portada.
 
-### Portada: feed de Instagram
+### Portada: llamada a la acción a Instagram
 
-Instagram **no tiene embed oficial de perfil completo**: sólo permite incrustar
-publicaciones individuales. Por eso la portada es una lista curada de permalinks
-que se renderizan con el script oficial `instagram.com/embed.js`:
+La portada **no incrusta publicaciones**. Muestra una introducción y un botón
+"Ver el perfil en Instagram" que abre
+[instagram.com/sweetcarolinechile](https://www.instagram.com/sweetcarolinechile/)
+en una pestaña nueva, seguido de la franja de contacto. La página no carga el
+script de Instagram, ni `iframe`s, ni `embed.js`: la única URL de Instagram en el
+HTML construido es la del perfil, y no se hace ninguna petición a
+`instagram.com` hasta que la persona hace clic.
 
-1. Abre la publicación en instagram.com y copia su permalink
-   (`https://www.instagram.com/p/<id>/` o `/reel/<id>/`).
-2. Agrégalo a `posts` en `src/data/instagram.json`, de la más nueva a la más
-   antigua (entre 6 y 12 entradas).
-3. `npm run build`. El feed no se actualiza solo: cada publicación nueva es un
-   commit.
+Esto es intencional (ADR 0006). Instagram no ofrece embed oficial de perfil
+completo, y el embed por publicación obligaba a mantener una lista de
+permalinks, cargaba cookies de terceros en la portada y podía quedar en blanco
+cuando Instagram responde `x-frame-options: DENY`. Un enlace elimina las tres
+cosas de una vez.
 
-No hay token ni secreto: nada se descarga en build. Mientras `posts` esté vacío
-—el estado inicial— la portada muestra las fotografías ya importadas
-(`fallback` en el mismo archivo) y un botón al perfil, así que no queda en blanco
-ni carga scripts de terceros. Un permalink mal escrito **rompe el build** con un
-mensaje que lo nombra.
+Si en el futuro se quisiera volver a mostrar el feed, hay que reponer el
+componente y la lista `posts` en `src/data/instagram.json`; el diseño anterior
+está documentado en el mismo ADR y en el historial de git.
 
-El embed agrega contenido e `iframe`s de Instagram (cookies de terceros) a la
-portada. Cada publicación conserva además un link propio ("Ver publicación en
-Instagram") **fuera** del bloque que Instagram reescribe, porque `embed.js`
-borra el bloquequote al convertirlo y puede dejar un `iframe` vacío si Instagram
-responde `x-frame-options: DENY`. Así ninguna publicación queda inalcanzable con
-JavaScript bloqueado, con un bloqueador de anuncios o si Instagram rechaza el
-embed. Los tests e2e verifican ese respaldo.
+`src/data/instagram.json` conserva sólo `profile` y `fallback` (las nueve
+fotografías importadas). Ninguna página las muestra: la primera es la imagen de
+Open Graph, que debe ser un asset local porque `astro:assets` no puede optimizar
+un archivo remoto.
 
-> No fue posible verificar visualmente el render real de los embeds desde este
-> entorno: Instagram responde `DENY` a clientes anónimos que salen de una IP de
-> datacenter. Los tests verifican el marcado y los respaldos, no los píxeles.
-> Conviene abrir la portada publicada una vez desde un navegador normal.
-
-## Marca y accesibilidad
-
-Los tokens salen del CSS compilado del sitio original:
-
-| Token | Valor | Uso |
-| --- | --- | --- |
-| `brand-500` | `#e6007e` | Color primario: header, footer, botones |
-| `brand-700` | `#b20065` | Barra superior, hover, focos |
-| `brand-900` | `#7a0043` | Titulares sobre fondo claro |
-| `accent-500` | `#1f7691` | Antetítulos |
-| `brand-line-soft` / `brand-line-strong` | `#f2b8ca` / `#f195b2` | **Sólo bordes** |
-
-`brand-line-soft` sobre `brand-500` mide **2.68:1** y `brand-line-strong` sobre
-blanco **2.17:1**: ambos reprueban WCAG AA como color de texto. Por eso están
-nombrados `-line-` en lugar de `-100`/`-300`. Para texto usar `brand-500`
-(4.50:1), `brand-700` (6.82:1) o `brand-900` (11.00:1).
-
-El sitio apunta a **WCAG 2.2 AA** y se verifica con axe-core en las tres rutas
-publicadas, en escritorio y móvil, en cada corrida de tests.
-
-## Despliegue
-
-- `main` → build → GitHub Pages (`.github/workflows/deploy.yml`)
-- Pull requests → type check, build, tests de unidad, e2e + accesibilidad
-  (`.github/workflows/ci.yml`)
-
-El orden importa: en CI el **build va antes de los tests de unidad**, porque
-`tests/unit/deploy.test.ts` verifica el `dist/` construido.
-
-El sitio se publica hoy en la **página de proyecto** del repositorio:
-`https://sredevopsorgagents.github.io/sweetcaroline/`. `deploy.yml` inyecta
-`SITE_URL` con esa URL, y `astro.config.mjs` **deriva `base` de su path**
-(`/sweetcaroline`) en lugar de fijarlo a mano.
-
-Esa derivación es deliberada: GitHub Pages sirve una página de proyecto bajo
-`/<repo>/`, y un build con `base: '/'` emite `/_astro/...` y enlaces como
-`/productos/` que apuntan por encima de la raíz publicada y devuelven 404 —es
-decir, el sitio se ve sin estilos, sin imágenes y con la navegación muerta. Al
-derivar `base` de `SITE_URL` los dos valores no pueden separarse.
-
-Para previsualizar localmente con la forma de una página de proyecto:
-
-```bash
-SITE_URL=https://sredevopsorgagents.github.io/sweetcaroline npm run build
-```
-
-Para el dominio raíz, sin variables de entorno, el build por defecto ya es el
-correcto (`https://sweetcaroline.cl`, `base: '/'`).
-
-`tests/unit/deploy.test.ts` verifica el `dist/` construido: que ningún enlace o
-asset interno escape del `base`, que todos resuelvan a un archivo existente, que
-`robots.txt` apunte al sitemap del host correcto y que las únicas páginas reales
-sean `/`, `/nosotros/`, `/contacto/` y `404.html` —todo lo demás bajo `dist/` debe
-ser un stub de redirección.
-
-### Indexación
-
-El sitio **no debe ser indexado**: es un POC público en revisión, y público no es
-lo mismo que encontrable. El bloqueo es el valor por defecto y cubre varias vías,
-porque ninguna sola alcanza:
-
-| Vía | Mecanismo |
-| --- | --- |
-| `robots.txt` | `Disallow: /` para `*` y para los crawlers de IA/archivado nombrados |
-| Cada página | `<meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">` |
-| Cada página | El mismo valor como `<meta http-equiv="X-Robots-Tag">` (GitHub Pages no permite cabeceras reales) |
-| Sitemap | No se emite: un sitemap es una invitación a crawlear |
-| Stubs de redirección | `noindex, nofollow` en lugar de `noindex, follow` |
-
-`robots.txt` es sólo una sugerencia y algunos robots lo ignoran; por eso la
-directiva por página es la que sostiene la política. Ver `src/lib/indexing.ts`.
-
-Para indexar un build (por ejemplo en el cutover al dominio raíz):
-
-```bash
-ALLOW_INDEXING=1 npm run build
-```
-
-Eso restaura `index, follow`, el sitemap y la línea `Sitemap:` en `robots.txt`.
 `tests/unit/deploy.test.ts` y la suite e2e verifican ambas ramas.
 
 ## Limitaciones conocidas
 
 - El contenido es sólo lectura para el cliente: editarlo requiere un commit.
   Ver ADR 0002 para el plan de un CMS basado en Git.
-- El feed de la portada es manual: no se agrega o actualiza solo. Automatizarlo
-  requeriría un token de la propia cuenta `@sweetcarolinechile`; ver ADR 0006.
+- El feed no se muestra en el sitio: la portada sólo enlaza al perfil, así que
+  quien no haga clic no ve las publicaciones. Mostrarlas exigiría un token de la
+  propia cuenta `@sweetcarolinechile`; ver ADR 0006.
 - 23 de 62 productos no tienen fotografía en WordPress. Listados en
   `content-report.md` (ya no se publican: ver ADR 0006).
 - 2 productos no tienen descripción en el origen.

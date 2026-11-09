@@ -123,9 +123,9 @@ describe('image references', () => {
     expect(missing).toEqual([]);
   });
 
-  it('resolves every homepage fallback photo to a file on disk', () => {
-    // The homepage shows these while the Instagram post list is empty, so a
-    // stale key would leave the landing page with an empty grid.
+  it('resolves every fallback photo to a file on disk', () => {
+    // The homepage uses the first of these as its Open Graph image, so a stale
+    // key would leave the page without a social preview.
     const missing = (instagram.fallback as { key: string }[])
       .filter((photo) => !assetExists(photo.key))
       .map((photo) => photo.key);

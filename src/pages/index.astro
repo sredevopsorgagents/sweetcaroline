@@ -1,41 +1,32 @@
 ---
 /**
- * Homepage: the Instagram feed.
+ * Homepage: a call to action for the Instagram profile.
  *
  * The site keeps only `Nosotros` and `Contacto` besides this page, so the
- * landing page is the shop window: the @sweetcarolinechile posts, embedded with
- * Instagram's official embed script, plus the shared contact strip. There is no
- * catalog here — product pages were retired (see docs/adr/0006).
+ * landing page is the shop window. It links out to @sweetcarolinechile rather
+ * than embedding anything: no Instagram post, no third-party iframe and no
+ * script load, which keeps the page fast, private and correct even when
+ * Instagram is blocked or down (see docs/adr/0006).
  *
- * While `src/data/instagram.json` has no `posts`, the feed falls back to the
- * photographs already imported from WordPress, so the page never ships empty.
+ * The imported photographs are used for metadata only. They are local assets,
+ * so `astro:assets` can optimise them; a build with none simply omits the image.
  */
-import { Image } from 'astro:assets';
 import BaseLayout from '../layouts/BaseLayout.astro';
 import ContactStrip from '../components/ContactStrip.astro';
-import InstagramFeed from '../components/InstagramFeed.astro';
 import Icon from '../components/Icon.astro';
 import { requireImage } from '../lib/images';
 import { SITE } from '../lib/site';
 import { INSTAGRAM, INSTAGRAM_PROFILE_URL } from '../data/instagram';
 
-const posts = INSTAGRAM.posts;
-const guestPosts = INSTAGRAM.guestPosts;
-const hasFeed = posts.length + guestPosts.length > 0;
-const fallback = INSTAGRAM.fallback.map((photo) => ({
-  ...photo,
-  src: requireImage(photo.key),
-}));
-// The OG image has to be a local asset: `astro:assets` cannot optimise a remote
-// file, and a build with no fallback photo simply omits the image.
-const socialImage = fallback[0]?.src;
+const photo = INSTAGRAM.fallback[0];
+const socialImage = photo ? requireImage(photo.key) : undefined;
 ---
 
 <BaseLayout
   title="Sweet Caroline | Pastelería fina y chocolatería en San Joaquín"
   description={SITE.description}
   image={socialImage}
-  imageAlt={fallback[0]?.alt}
+  imageAlt={photo?.alt}
 >
   <section class="bg-brand-50 border-brand-line-soft border-b">
     <div class="mx-auto max-w-6xl px-4 py-12 lg:py-16">
@@ -61,40 +52,6 @@ const socialImage = fallback[0]?.src;
         </a>
       </p>
     </div>
-  </section>
-
-  <section class="mx-auto max-w-6xl px-4 py-12" aria-labelledby="feed">
-    <h2 id="feed" class="text-brand-900 text-2xl font-bold sm:text-3xl">
-      {hasFeed ? 'Publicaciones recientes' : 'Nuestras fotos'}
-    </h2>
-
-    {
-      hasFeed ? (
-        <div class="mt-8">
-          <InstagramFeed posts={posts} guestPosts={guestPosts} />
-        </div>
-      ) : (
-        <>
-          <p class="text-ink-600 mt-3 max-w-2xl">
-            Síguenos en Instagram para ver lo último que publicamos.
-          </p>
-          <ul class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {fallback.map((photo) => (
-              <li>
-                <Image
-                  src={photo.src}
-                  alt={photo.alt}
-                  widths={[320, 560, 840]}
-                  sizes="(min-width: 1024px) 30vw, (min-width: 640px) 46vw, 92vw"
-                  loading="lazy"
-                  class="w-full rounded-2xl"
-                />
-              </li>
-            ))}
-          </ul>
-        </>
-      )
-    }
   </section>
 
   <ContactStrip />
