@@ -110,13 +110,14 @@ npm run content:check -- --wp-base http://localhost:8080
 Escribe:
 
 ```
-src/content/products/*.json    62 productos
-src/content/categories/*.json  8 categorías de vitrina
+src/content/products/*.json    62 productos (procedencia, no publicado)
+src/content/categories/*.json  8 categorías de vitrina (procedencia)
 src/content/pages/*.md         nosotros, en-cafeteria
 src/data/site.json             contacto, horarios, dirección
-src/data/home.json             hero y destacados
+src/data/home.json             hero y destacados (procedencia, sin uso)
 src/data/gallery.json          galería
-src/data/legacy-urls.json      URLs antiguas -> nuevas
+src/data/instagram.json        feed de la portada: posts + fallback local
+src/data/legacy-urls.json      URLs antiguas -> portada
 src/assets/**                  imágenes normalizadas a WebP
 content-report.md              informe para el cliente
 ```
@@ -143,8 +144,8 @@ queda fuera de toda sección o si una imagen referenciada no existe.
 src/
   content.config.ts     esquemas Zod de las colecciones
   content/              contenido importado
-  data/                 navegación, sitio, galería, URLs antiguas
-  lib/                  catalog.ts (agrupación), images.ts, seo.ts, site.ts, indexing.ts
+  data/                 navegación, sitio, galería, Instagram, URLs antiguas
+  lib/                  images.ts, seo.ts, site.ts, indexing.ts
   layouts/BaseLayout    head, SEO, JSON-LD, header, footer
   components/           UI reutilizable
   pages/                rutas
@@ -167,19 +168,50 @@ y [`AGENTS.md`](AGENTS.md) para la guía operativa del repositorio.
 
 | Ruta | Página |
 | --- | --- |
-| `/` | Portada |
+| `/` | Portada: feed de Instagram |
 | `/nosotros/` | Quiénes somos, misión, visión |
-| `/productos/` | Índice de categorías |
-| `/productos/categoria/[categoria]/` | Productos de una categoría |
-| `/en-cafeteria/` | Índice de cafetería |
-| `/en-cafeteria/categoria/[categoria]/` | Productos de cafetería |
-| `/producto/[slug]/` | Detalle de producto |
-| `/galeria-de-fotos/` | Galería con lightbox |
 | `/contacto/` | Contacto, horarios, mapa |
 | `/404` | No encontrado |
 
+Las secciones `Productos`, `En cafetería` y `Galería de fotos` fueron retiradas
+(ver ADR 0006). Sus datos siguen versionados en `src/content/**` como procedencia
+del import, pero ninguna ruta los publica, y sus rutas ya no existen.
+
 Las URLs históricas de WordPress (`/nuestros-productos/...`, `/galeria/`) siguen
-resolviendo mediante stubs con `meta refresh` + `canonical`.
+resolviendo mediante stubs con `meta refresh` + `canonical`; ahora todas apuntan a
+la portada.
+
+### Portada: feed de Instagram
+
+Instagram **no tiene embed oficial de perfil completo**: sólo permite incrustar
+publicaciones individuales. Por eso la portada es una lista curada de permalinks
+que se renderizan con el script oficial `instagram.com/embed.js`:
+
+1. Abre la publicación en instagram.com y copia su permalink
+   (`https://www.instagram.com/p/<id>/` o `/reel/<id>/`).
+2. Agrégalo a `posts` en `src/data/instagram.json`, de la más nueva a la más
+   antigua (entre 6 y 12 entradas).
+3. `npm run build`. El feed no se actualiza solo: cada publicación nueva es un
+   commit.
+
+No hay token ni secreto: nada se descarga en build. Mientras `posts` esté vacío
+—el estado inicial— la portada muestra las fotografías ya importadas
+(`fallback` en el mismo archivo) y un botón al perfil, así que no queda en blanco
+ni carga scripts de terceros. Un permalink mal escrito **rompe el build** con un
+mensaje que lo nombra.
+
+El embed agrega contenido e `iframe`s de Instagram (cookies de terceros) a la
+portada. Cada publicación conserva además un link propio ("Ver publicación en
+Instagram") **fuera** del bloque que Instagram reescribe, porque `embed.js`
+borra el bloquequote al convertirlo y puede dejar un `iframe` vacío si Instagram
+responde `x-frame-options: DENY`. Así ninguna publicación queda inalcanzable con
+JavaScript bloqueado, con un bloqueador de anuncios o si Instagram rechaza el
+embed. Los tests e2e verifican ese respaldo.
+
+> No fue posible verificar visualmente el render real de los embeds desde este
+> entorno: Instagram responde `DENY` a clientes anónimos que salen de una IP de
+> datacenter. Los tests verifican el marcado y los respaldos, no los píxeles.
+> Conviene abrir la portada publicada una vez desde un navegador normal.
 
 ## Marca y accesibilidad
 
@@ -198,8 +230,8 @@ blanco **2.17:1**: ambos reprueban WCAG AA como color de texto. Por eso están
 nombrados `-line-` en lugar de `-100`/`-300`. Para texto usar `brand-500`
 (4.50:1), `brand-700` (6.82:1) o `brand-900` (11.00:1).
 
-El sitio apunta a **WCAG 2.2 AA** y se verifica con axe-core en 10 rutas, en
-escritorio y móvil, en cada corrida de tests.
+El sitio apunta a **WCAG 2.2 AA** y se verifica con axe-core en las tres rutas
+publicadas, en escritorio y móvil, en cada corrida de tests.
 
 ## Despliegue
 
@@ -232,8 +264,9 @@ correcto (`https://sweetcaroline.cl`, `base: '/'`).
 
 `tests/unit/deploy.test.ts` verifica el `dist/` construido: que ningún enlace o
 asset interno escape del `base`, que todos resuelvan a un archivo existente, que
-`robots.txt` apunte al sitemap del host correcto y que la sección de cafetería se
-publique en la URL que enlaza el menú.
+`robots.txt` apunte al sitemap del host correcto y que las únicas páginas reales
+sean `/`, `/nosotros/`, `/contacto/` y `404.html` —todo lo demás bajo `dist/` debe
+ser un stub de redirección.
 
 ### Indexación
 
@@ -265,8 +298,10 @@ Eso restaura `index, follow`, el sitemap y la línea `Sitemap:` en `robots.txt`.
 
 - El contenido es sólo lectura para el cliente: editarlo requiere un commit.
   Ver ADR 0002 para el plan de un CMS basado en Git.
-- 23 de 62 productos no tienen fotografía en WordPress y muestran una tarjeta de
-  marca. Listados en `content-report.md`.
+- El feed de la portada es manual: no se agrega o actualiza solo. Automatizarlo
+  requeriría un token de la propia cuenta `@sweetcarolinechile`; ver ADR 0006.
+- 23 de 62 productos no tienen fotografía en WordPress. Listados en
+  `content-report.md` (ya no se publican: ver ADR 0006).
 - 2 productos no tienen descripción en el origen.
 - `public/CNAME` no se publica, porque una página de proyecto no debe declarar un
   dominio que no sirve. Debe **restaurarse antes del cutover** al dominio raíz,

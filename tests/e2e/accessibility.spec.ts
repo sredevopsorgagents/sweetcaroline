@@ -12,14 +12,6 @@ import { expect, test } from '@playwright/test';
 const ROUTES = [
   '/',
   '/nosotros/',
-  '/productos/',
-  '/productos/categoria/tortas/',
-  '/en-cafeteria/',
-  '/en-cafeteria/categoria/por-trozo/',
-  '/producto/macarons-de-chocolate/',
-  // A product with no photograph, which exercises the placeholder tile.
-  '/producto/moana/',
-  '/galeria-de-fotos/',
   '/contacto/',
 ];
 
@@ -42,24 +34,8 @@ for (const route of ROUTES) {
   });
 }
 
-test('gallery lightbox traps focus and closes on Escape', async ({ page }) => {
-  await page.goto('/galeria-de-fotos/');
-
-  const trigger = page.locator('[data-gallery-index]').first();
-  await trigger.click();
-
-  const dialog = page.locator('#lightbox');
-  await expect(dialog).toBeVisible();
-  await expect(page.locator('#lightbox-image')).toHaveAttribute('src', /_astro/);
-
-  await page.keyboard.press('Escape');
-  await expect(dialog).toBeHidden();
-  // Focus must return to the thumbnail that opened it.
-  await expect(trigger).toBeFocused();
-});
-
 test('every image exposes an accessible name', async ({ page }) => {
-  for (const route of ['/', '/productos/categoria/tortas/', '/galeria-de-fotos/', '/nosotros/']) {
+  for (const route of ['/', '/nosotros/', '/contacto/']) {
     await page.goto(route, { waitUntil: 'networkidle' });
     const missing = await page.$$eval('img', (images) =>
       images

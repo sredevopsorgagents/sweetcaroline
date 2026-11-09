@@ -24,7 +24,7 @@
  *    2024/03, 2025/09, 2026/03, 2026/07 ...).
  */
 
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -397,15 +397,36 @@ ${vision}
 `;
 }
 
-/** Historical permalinks that must keep resolving after the rebuild. */
+/**
+ * Historical permalinks that must keep resolving after the rebuild.
+ *
+ * The catalog and gallery sections were retired (see ADR 0006), so every old
+ * permalink now lands on the homepage, which carries the Instagram feed and the
+ * contact details. Retargeting here rather than hand-editing
+ * `src/data/legacy-urls.json` keeps a re-import from resurrecting the old
+ * `/producto/...` routes, which no longer exist.
+ */
 function buildLegacyUrls(products) {
   const map = {};
   for (const p of products) {
-    map[new URL(p.sourceUrl).pathname] = `/producto/${p.slug}/`;
+    map[new URL(p.sourceUrl).pathname] = '/';
   }
-  map['/galeria/'] = '/galeria-de-fotos/';
-  map['/nuestros-productos/'] = '/productos/';
+  map['/galeria/'] = '/';
+  map['/nuestros-productos/'] = '/';
   return map;
+}
+
+/**
+ * The homepage feed configuration. `posts` is authored by hand — Instagram has
+ * no official profile-feed endpoint that a build can read without a token
+ * belonging to the account itself — so a re-import must never overwrite it.
+ */
+function buildInstagramConfig(gallery) {
+  return {
+    profile: 'sweetcarolinechile',
+    fallback: gallery.map(({ key, alt }) => ({ key, alt })),
+    posts: [],
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -653,6 +674,17 @@ async function main() {
     await writeJson('src/data/home.json', { hero, highlights: HOME_HIGHLIGHTS });
     await writeJson('src/data/gallery.json', gallery);
     await writeJson('src/data/legacy-urls.json', buildLegacyUrls(products));
+
+    // Keep any post list the client has already curated; only the local
+    // fallback photographs are regenerated.
+    const instagramPath = path.join(ROOT, 'src/data/instagram.json');
+    const existingPosts = existsSync(instagramPath)
+      ? (JSON.parse(await readFile(instagramPath, 'utf8')).posts ?? [])
+      : [];
+    await writeJson('src/data/instagram.json', {
+      ...buildInstagramConfig(gallery),
+      posts: existingPosts,
+    });
   }
 
   const report = renderReport({

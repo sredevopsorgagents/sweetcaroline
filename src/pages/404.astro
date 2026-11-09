@@ -5,7 +5,7 @@ import { withBase } from '../data/navigation';
 
 <BaseLayout
   title="Página no encontrada"
-  description="La página que buscas no existe. Vuelve al inicio o revisa nuestro catálogo de productos."
+  description="La página que buscas no existe. Vuelve al inicio o escríbenos."
   pageTitle="Página no encontrada | Sweet Caroline"
 >
   <section class="mx-auto max-w-3xl px-4 py-20 text-center">
@@ -13,8 +13,8 @@ import { withBase } from '../data/navigation';
     <p class="text-brand-500 text-6xl font-extrabold">404</p>
     <h1 class="text-brand-900 mt-4 text-3xl font-extrabold sm:text-4xl">Página no encontrada</h1>
     <p class="text-ink-600 mt-4 text-lg">
-      La página que buscas no existe o cambió de dirección. Puedes volver al inicio o revisar
-      nuestro catálogo.
+      La página que buscas no existe o cambió de dirección. Puedes volver al inicio o
+      escribirnos.
     </p>
     <div class="mt-8 flex flex-wrap justify-center gap-3">
       <a
@@ -24,10 +24,10 @@ import { withBase } from '../data/navigation';
         Volver al inicio
       </a>
       <a
-        href={withBase('/productos/')}
+        href={withBase('/contacto/')}
         class="border-brand-700 text-brand-700 hover:bg-brand-700 inline-flex items-center rounded-full border-2 px-6 py-3 font-semibold transition-colors hover:text-white"
       >
-        Ver productos
+        Contacto
       </a>
     </div>
   </section>

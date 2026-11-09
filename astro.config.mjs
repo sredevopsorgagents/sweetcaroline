@@ -36,11 +36,11 @@ export default defineConfig({
   },
   integrations: [
     sitemap({
-      // Legacy redirect stubs written by scripts/emit-redirects.mjs carry
-      // `noindex, follow`; listing them would contradict that. And while the
-      // preview must stay unlisted, the sitemap lists nothing at all.
-      filter: (page) =>
-        allowIndexing && !page.includes('/nuestros-productos/') && !page.endsWith('/galeria/'),
+      // While the preview must stay unlisted the sitemap lists nothing at all.
+      // The legacy redirect stubs cannot appear regardless: Astro's sitemap
+      // integration only sees pages it rendered, and `scripts/emit-redirects.mjs`
+      // writes its stubs afterwards, straight into `dist/`.
+      filter: () => allowIndexing,
     }),
   ],
   // Poppins is the existing brand typeface (the WordPress theme loads it from

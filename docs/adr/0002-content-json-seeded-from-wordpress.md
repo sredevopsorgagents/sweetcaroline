@@ -41,7 +41,8 @@ that prompted them; `scripts/html-text.mjs` implements them and
 
 **Positive**
 
-- Builds are deterministic, offline and fast (81 pages in under 3 seconds).
+- Builds are deterministic, offline and fast (now 4 pages plus the redirect
+  stubs; it was 81 pages before ADR 0006 retired the catalog routes).
 - Content changes are reviewable diffs with history and blame.
 - No database, no CMS, no credentials, no backup strategy.
 - The schemas are deliberately CMS-shaped, so a Git-based editor (Decap, Pages
@@ -51,9 +52,10 @@ that prompted them; `scripts/html-text.mjs` implements them and
 
 - The bakery cannot edit products herself; she must ask a developer.
   **This is the main accepted trade-off of the POC.**
-- 23 of 62 products have no photograph in WordPress and now render a branded
-  placeholder tile. That is a content gap, not a code problem, and it is listed
-  in `content-report.md` for follow-up.
+- 23 of 62 products have no photograph in WordPress. That is a content gap, not
+  a code problem, and it is listed in `content-report.md` for follow-up. The
+  product pages that rendered a placeholder tile for them were retired by
+  ADR 0006; the data and the report are kept as provenance.
 
 ## Alternatives considered
 

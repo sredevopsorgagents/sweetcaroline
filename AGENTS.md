@@ -14,14 +14,15 @@ structural change — most obvious "improvements" here are settled decisions.
 astro.config.mjs        site URL, base derivation, sitemap, fonts, Tailwind
 src/content.config.ts   Zod schemas for the content collections
 src/content/            imported content: products/*.json, categories/*.json, pages/*.md
-src/data/               navigation.ts, site.json, home.json, gallery.json, legacy-urls.json
-src/lib/                catalog.ts, images.ts, seo.ts, site.ts, indexing.ts
+src/data/               navigation.ts, site.json, home.json, gallery.json, instagram.json,
+                        legacy-urls.json
+src/lib/                images.ts, seo.ts, site.ts, indexing.ts
 src/layouts/            BaseLayout.astro — head, SEO, JSON-LD, header, footer
 src/components/         reusable UI
 src/pages/              routes
 src/styles/global.css   brand tokens
 scripts/                import-wordpress.mjs, wp-base.mjs, html-text.mjs, emit-redirects.mjs, generate-brand-assets.mjs
-tests/unit/             Vitest — catalog, content, deploy integrity, wp-base, html-text
+tests/unit/             Vitest — content, deploy integrity, instagram, wp-base, html-text
 tests/e2e/              Playwright + axe-core
 docs/adr/               architecture decision records
 ```
@@ -39,6 +40,16 @@ docs/adr/               architecture decision records
 | `npm run content:import` | Manual, network-bound, **never in CI** |
 | `npm run content:check` | Same importer, writes nothing |
 | `npm run redirects` | Stubs alone |
+
+### Editing the homepage Instagram feed
+
+`/` renders individual Instagram posts with the official embed script; Instagram
+has no official full-profile embed. Add a post permalink
+(`https://www.instagram.com/p/<id>/` or `/reel/<id>/`) to `posts` in
+`src/data/instagram.json` and rebuild. The importer regenerates only the local
+`fallback` photographs and preserves an existing `posts` list. A malformed
+permalink fails the build. With `posts` empty the page shows the fallback
+photographs and loads nothing from Instagram. See ADR 0006.
 
 ### Ordering
 
@@ -99,14 +110,16 @@ network rather than quietly read production. See `scripts/wp-base.mjs`.
    markup, HTML entities and whitespace only. Typos, missing descriptions and missing
    photos are reported in `content-report.md` for the client to decide.
 2. **`base` stays derived from `SITE_URL`.** A project-page deploy serves under
-   `/<repo>/`, and a build with `base: '/'` emits `/_astro/...` and `/productos/` links
+   `/<repo>/`, and a build with `base: '/'` emits `/_astro/...` and `/nosotros/` links
    that 404 there — a site with no styles and dead navigation. Deriving one from the
    other makes drift impossible. `BASE_PATH` is an escape hatch, not the normal path.
 3. **Never hand-write a root-absolute `href` in a page or component.** Astro rewrites
    bundled asset URLs and `<img src>` for a non-root `base`, but it does **not** rewrite
-   string `href="/foo/"` attributes. Use `withBase()`, `sectionHref()`, `sectionRoute()`
-   or `productHref()` from `src/data/navigation.ts`. `tests/unit/deploy.test.ts` fails
-   the build if an internal link escapes the base or does not resolve to a real file.
+   string `href="/foo/"` attributes. Use `withBase()` from
+   `src/data/navigation.ts` — it is the only URL helper left, because every route the
+   old `sectionHref()`/`productHref()` helpers built was retired (ADR 0006).
+   `tests/unit/deploy.test.ts` fails the build if an internal link escapes the base or
+   does not resolve to a real file.
 4. **The importer never runs in CI.** It needs the network, which would make builds
    non-deterministic. `WORDPRESS_BASE_URL` is therefore not a CI secret.
 5. **Keep the unlisted-by-default policy** unless a change to `ALLOW_INDEXING=1` is
@@ -116,7 +129,7 @@ network rather than quietly read production. See `scripts/wp-base.mjs`.
    import that already happened, not configuration.
 7. **Update the ADRs when a decision changes.** ADR 0002 documents the no-CMS choice and
    points at the follow-up; ADR 0003 documents the hosting arrangement; ADR 0004 the
-   indexing policy.
+   indexing policy; ADR 0006 the two-section site and the Instagram feed.
 
 ## Environment gotchas that cost real time here
 
@@ -139,7 +152,8 @@ npm run build                                                    # apex: base '/
 SITE_URL=https://sredevopsorgagents.github.io/sweetcaroline npm run build   # project page: base '/sweetcaroline'
 ```
 
-Both build 81 pages. The second is the shape actually deployed, so test link and asset
+Both build the same four pages (`/`, `/nosotros/`, `/contacto/`, `404.html`) plus the
+legacy redirect stubs. The second is the shape actually deployed, so test link and asset
 integrity with it after touching any URL helper.
 
 ## Before you finish

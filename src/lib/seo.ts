@@ -67,14 +67,3 @@ export function buildBreadcrumbs(trail: Breadcrumb[], site: URL | undefined) {
     })),
   };
 }
-
-export function buildProductPage(product: { name: string; description: string }, path: string, site: URL | undefined) {
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'Product',
-    name: product.name,
-    ...(product.description ? { description: product.description } : {}),
-    url: absoluteUrl(path, site),
-    brand: { '@type': 'Brand', name: SITE.name },
-  };
-}

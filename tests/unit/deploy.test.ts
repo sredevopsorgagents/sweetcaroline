@@ -48,8 +48,12 @@ const describeIfBuilt = hasDist ? describe : describe.skip;
 describeIfBuilt('built output integrity', () => {
   const files = htmlFiles();
 
-  it('emits pages at all', () => {
-    expect(files.length).toBeGreaterThan(50);
+  it('emits only the remaining pages', () => {
+    // `/`, `/nosotros/`, `/contacto/`, `404.html` — plus the generated legacy
+    // redirect stubs. Asserting a ceiling as well as a floor catches a route
+    // that was meant to be deleted but is still being built.
+    expect(files.length).toBeGreaterThan(0);
+    expect(files.length).toBeLessThan(200);
   });
 
   it('never emits a root-absolute internal link that escapes the deployed base', () => {
@@ -121,12 +125,43 @@ describeIfBuilt('built output integrity', () => {
     expect(missing.slice(0, 20)).toEqual([]);
   });
 
-  it('serves the cafeteria section from the URL the navigation links to', () => {
-    // The directory must match the nav's `/en-cafeteria/`, and the stale
-    // `/cafeteria/` route must not be generated.
-    expect(existsSync(path.join(DIST, 'en-cafeteria', 'index.html'))).toBe(true);
-    expect(existsSync(path.join(DIST, 'en-cafeteria', 'categoria'))).toBe(true);
-    expect(existsSync(path.join(DIST, 'cafeteria'))).toBe(false);
+  it('publishes exactly the homepage, Nosotros and Contacto', () => {
+    // The catalog, cafeteria and gallery routes were retired (ADR 0006). Only
+    // the legacy redirect *stubs* may remain under those paths, and they must
+    // not be real pages.
+    for (const route of ['index.html', 'nosotros/index.html', 'contacto/index.html']) {
+      expect(existsSync(path.join(DIST, route)), `${route} should exist`).toBe(true);
+    }
+
+    // No page directory is generated for a retired section.
+    for (const retired of [
+      'productos',
+      'producto',
+      'en-cafeteria',
+      'galeria-de-fotos',
+      path.join('[section]'),
+    ]) {
+      expect(
+        existsSync(path.join(DIST, retired, 'index.html')),
+        `${retired}/index.html should not be built`,
+      ).toBe(false);
+    }
+  });
+
+  it('renders real pages only for the three published routes', () => {
+    // Anything else under `dist/` must be a redirect stub, which the stub
+    // itself proves with `http-equiv="refresh"`.
+    const realPages = files.filter((file) => {
+      const html = readFileSync(path.join(DIST, file), 'utf8');
+      return !html.includes('http-equiv="refresh"');
+    });
+
+    expect(realPages.sort()).toEqual([
+      '404.html',
+      'contacto/index.html',
+      'index.html',
+      'nosotros/index.html',
+    ]);
   });
 
   it('points robots.txt at the sitemap on the deployed host when indexing is allowed', () => {
@@ -213,12 +248,30 @@ describeIfBuilt('built output integrity', () => {
     expect(target).not.toBe('');
     expect(refresh).toBe(target);
 
-    // No repeated path segment directly after the origin.
+    // Every retired permalink now lands on the homepage, and the base is
+    // applied exactly once: the path after the origin is the base itself plus
+    // the `/` the stub targets, never the base twice.
     const { origin, pathname } = new URL(target);
+
+    // No repeated path segment directly after the origin.
     const segments = pathname.split('/').filter(Boolean);
     for (let i = 1; i < segments.length; i++) {
       expect(segments[i], `repeated segment in ${target}`).not.toBe(segments[i - 1]);
     }
     expect(target.startsWith(origin)).toBe(true);
+    expect(pathname.endsWith('/')).toBe(true);
+  });
+
+  it('sends a retired permalink to the deployed root, not to a retired route', () => {
+    // `/producto/<slug>/` used to be the target; it no longer exists, so a stub
+    // pointing there would be a redirect to a 404.
+    const stub = path.join(DIST, 'galeria', 'index.html');
+    expect(existsSync(stub)).toBe(true);
+
+    const html = readFileSync(stub, 'utf8');
+    const target = /<link rel="canonical" href="([^"]+)"/.exec(html)?.[1] ?? '';
+    for (const retired of ['/producto/', '/productos/', '/en-cafeteria/', '/galeria-de-fotos/']) {
+      expect(target).not.toContain(retired);
+    }
   });
 });

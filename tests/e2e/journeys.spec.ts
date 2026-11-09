@@ -1,38 +1,114 @@
+import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 
+// This spec is an ES module, so `__dirname` does not exist; resolve the data
+// directory from `import.meta.url` instead.
+const INSTAGRAM_FEED = new URL('../../src/data/instagram.json', import.meta.url);
+
 const MAIN_ROUTES = [
-  { path: '/', heading: /pastelería para deleitarte/i },
+  { path: '/', heading: /instagram/i },
   { path: '/nosotros/', heading: /la pastelería/i },
-  { path: '/productos/', heading: /^productos$/i },
-  { path: '/en-cafeteria/', heading: /en cafetería/i },
-  { path: '/galeria-de-fotos/', heading: /galería de fotos/i },
   { path: '/contacto/', heading: /^contacto$/i },
 ];
 
+/** Routes deleted with the catalog redesign; nothing may serve them. */
+const RETIRED_ROUTES = ['/productos/', '/en-cafeteria/', '/galeria-de-fotos/'];
+
 test.describe('critical journeys', () => {
-  test('home page loads with the hero and a working WhatsApp CTA', async ({ page }) => {
+  test('home page is the Instagram feed with a working profile link', async ({ page }) => {
     await page.goto('/');
 
-    await expect(page.getByRole('heading', { level: 1 })).toContainText(/pastelería para deleitarte/i);
+    await expect(page.getByRole('heading', { level: 1 })).toContainText(/sweet caroline en instagram/i);
 
-    const whatsapp = page.getByRole('link', { name: /pedir por whatsapp/i }).first();
-    await expect(whatsapp).toHaveAttribute('href', 'https://wa.me/56996906461?text=Hola%2C%20quisiera%20hacer%20un%20pedido.');
+    // The link to the profile is the one part of the feed that works without
+    // Instagram's script.
+    const profile = page.getByRole('link', { name: /ver el perfil en instagram/i }).first();
+    await expect(profile).toHaveAttribute(
+      'href',
+      'https://www.instagram.com/sweetcarolinechile/',
+    );
   });
 
-  test('browses from the products index into a category and a product detail', async ({ page }) => {
-    await page.goto('/productos/');
+  test('every post has an embed, and a link that works without Instagram', async ({ page }) => {
+    const feed = JSON.parse(readFileSync(INSTAGRAM_FEED, 'utf8')) as {
+      posts: string[];
+      guestPosts: string[];
+    };
+    const expected = feed.posts.length + feed.guestPosts.length;
 
-    await page.getByRole('link', { name: /tortas/i }).first().click();
-    await expect(page).toHaveURL(/\/productos\/categoria\/tortas\/$/);
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText(/tortas/i);
+    // `embed.js` *replaces* each blockquote with a cross-origin iframe, so the
+    // markup count is the pre-script state. Blocking Instagram exercises the
+    // path a visitor with a blocker or a down service gets: one blockquote and
+    // one working link per post.
+    await page.route(/instagram\.com/, (route) => route.abort());
+    await page.goto('/');
 
-    // 23 tortas in the imported catalog.
-    await expect(page.locator('main ul li a[href^="/producto/"]')).toHaveCount(23);
+    await expect(page.locator('main blockquote.instagram-media')).toHaveCount(expected);
 
-    await page.locator('main ul li a[href^="/producto/"]').first().click();
-    await expect(page).toHaveURL(/\/producto\/[\w-]+\/$/);
-    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-    await expect(page.getByRole('link', { name: /consultar por whatsapp/i })).toBeVisible();
+    const links = page.locator('main blockquote.instagram-media a[href*="instagram.com"]');
+    await expect(links).toHaveCount(expected);
+    const hrefs = await links.evaluateAll((anchors) =>
+      anchors.map((anchor) => anchor.getAttribute('href') ?? ''),
+    );
+    expect(hrefs).toEqual([...feed.posts, ...feed.guestPosts]);
+  });
+
+  test('every post keeps a visible link once Instagram rewrites the embeds', async ({ page }) => {
+    // `embed.js` deletes each blockquote it converts, and Instagram can answer
+    // its embed endpoint with `x-frame-options: DENY`, leaving an empty 2px
+    // frame. The per-post link lives outside the blockquote for exactly that
+    // case: no post may become unreachable.
+    const feed = JSON.parse(readFileSync(INSTAGRAM_FEED, 'utf8')) as {
+      posts: string[];
+      guestPosts: string[];
+    };
+    const expected = [...feed.posts, ...feed.guestPosts];
+
+    await page.goto('/');
+    // Allow the embed script to run and rewrite the list, or to fail trying.
+    await page.waitForTimeout(3000);
+
+    const visible = await page
+      .locator('main a[href^="https://www.instagram.com/"]')
+      .evaluateAll((anchors) =>
+        anchors
+          .filter((anchor) => (anchor as HTMLElement).offsetParent !== null)
+          .map((anchor) => anchor.getAttribute('href') ?? ''),
+      );
+
+    for (const url of expected) {
+      expect(visible, `${url} should stay reachable`).toContain(url);
+    }
+  });
+
+  test('the embeds do not overflow the page when Instagram loads', async ({ page }) => {
+    // Instagram styles its frame `position: absolute; width: 100%;`. Without a
+    // positioned wrapper that 100% resolves against the viewport and the page
+    // scrolls sideways on a phone.
+    await page.goto('/', { waitUntil: 'networkidle' });
+
+    const overflow = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+    }));
+    expect(overflow.scrollWidth - overflow.clientWidth).toBeLessThanOrEqual(1);
+  });
+
+  test('labels a post published by another account', async ({ page }) => {
+    // Instagram replaces the blockquote with an iframe, so keep the markup the
+    // label sits next to by blocking the embed script.
+    await page.route(/instagram\.com/, (route) => route.abort());
+    await page.goto('/');
+
+    // A guest post must be attributed, or the homepage implies it is ours.
+    const feed = JSON.parse(
+      readFileSync(INSTAGRAM_FEED, 'utf8'),
+    ) as { guestPosts: string[] };
+    for (const url of feed.guestPosts) {
+      const account = /instagram\.com\/([A-Za-z0-9._]+)\/(?:p|reel)\//.exec(url)?.[1];
+      expect(account, `${url} should name its account`).toBeTruthy();
+      await expect(page.getByRole('link', { name: `@${account}` })).toBeVisible();
+    }
   });
 
   test('shows both published opening-hours ranges on the contact page', async ({ page }) => {
@@ -46,10 +122,11 @@ test.describe('critical journeys', () => {
     );
   });
 
-  test('keeps the legacy gallery URL working', async ({ page }) => {
-    await page.goto('/galeria-de-fotos/');
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText(/galería de fotos/i);
-    await expect(page.locator('main img').first()).toBeVisible();
+  test('does not serve the retired sections', async ({ request }) => {
+    for (const route of RETIRED_ROUTES) {
+      const response = await request.get(route);
+      expect(response.status(), `${route} should be gone`).toBe(404);
+    }
   });
 
   test('a legacy stub declares its canonical target', async ({ request }) => {
@@ -57,7 +134,9 @@ test.describe('critical journeys', () => {
     expect(response.status()).toBe(200);
 
     const body = await response.text();
-    const target = 'https://sweetcaroline.cl/producto/macarons-de-chocolate/';
+    // Retired product pages redirect to the homepage, which is where the
+    // Instagram feed and the contact details live.
+    const target = 'https://sweetcaroline.cl/';
 
     expect(body).toContain('http-equiv="refresh"');
     expect(body).toContain(`url=${target}`);
@@ -69,9 +148,24 @@ test.describe('critical journeys', () => {
   });
 
   test('the redirect target actually exists', async ({ request }) => {
-    const response = await request.get('/producto/macarons-de-chocolate/');
+    // The stub redirects to the absolute production URL, so a local preview
+    // server must not follow it. Assert the redirect contract on the markup and
+    // resolve the target separately instead.
+    const stub = await request.get('/galeria/');
+    expect(stub.status()).toBe(200);
+
+    const body = await stub.text();
+    expect(body).toContain('url=https://sweetcaroline.cl/');
+
+    // The in-page link is base-aware, so it works where the meta refresh to the
+    // absolute URL might not.
+    const href = /<a href="([^"]+)">Ir a la nueva dirección/.exec(body)?.[1] ?? '';
+    expect(href).toMatch(/^\/(sweetcaroline\/)?$/);
+
+    // The target itself is a real page, not the 404 shell.
+    const response = await request.get('/');
     expect(response.status()).toBe(200);
-    expect(await response.text()).toMatch(/Macarons/i);
+    expect(await response.text()).toContain('<h1');
   });
 
   test('every published page carries a noindex directive', async ({ page, request }) => {
@@ -140,7 +234,8 @@ test.describe('navigation', () => {
     const hrefs = await nav.getByRole('link').evaluateAll((links) =>
       links.map((link) => link.getAttribute('href') ?? ''),
     );
-    expect(hrefs.length).toBeGreaterThan(3);
+    // Nosotros and Contacto; the logo is the link home.
+    expect(hrefs.length).toBeGreaterThan(1);
 
     for (const href of hrefs) {
       const response = await page.request.get(href);
@@ -152,14 +247,17 @@ test.describe('navigation', () => {
     }
   });
 
-  test('the cafeteria section links to the URL it is published at', async ({ page }) => {
-    // The section is published at `/en-cafeteria/`; a link to a slug-derived
-    // `/cafeteria/` would be a dead end.
-    await page.goto('/productos/categoria/tortas/');
+  test('the navigation offers only the two remaining sections', async ({ page, isMobile }) => {
+    await page.goto('/');
 
-    const response = await page.request.get('/en-cafeteria/categoria/tartas/');
-    expect(response.status()).toBe(200);
-    await expect(page.locator('a[href$="/cafeteria/"]')).toHaveCount(0);
+    const name = isMobile ? /navegación principal móvil/i : /navegación principal$/i;
+    if (isMobile) {
+      await page.getByRole('button', { name: /menú/i }).click();
+    }
+    const nav = page.getByRole('navigation', { name });
+
+    const labels = await nav.getByRole('link').allInnerTexts();
+    expect(labels.map((label) => label.trim().toUpperCase())).toEqual(['NOSOTROS', 'CONTACTO']);
   });
 });
 

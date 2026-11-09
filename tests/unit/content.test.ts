@@ -29,7 +29,7 @@ const products = readJsonDir('products');
 const categories = readJsonDir('categories');
 const site = JSON.parse(readFileSync(path.join(ROOT, 'src/data/site.json'), 'utf8'));
 const gallery = JSON.parse(readFileSync(path.join(ROOT, 'src/data/gallery.json'), 'utf8'));
-const home = JSON.parse(readFileSync(path.join(ROOT, 'src/data/home.json'), 'utf8'));
+const instagram = JSON.parse(readFileSync(path.join(ROOT, 'src/data/instagram.json'), 'utf8'));
 const legacyUrls = JSON.parse(readFileSync(path.join(ROOT, 'src/data/legacy-urls.json'), 'utf8'));
 
 const categorySlugs = new Set(categories.map((c) => c.id));
@@ -123,10 +123,12 @@ describe('image references', () => {
     expect(missing).toEqual([]);
   });
 
-  it('resolves every hero image key to a file on disk', () => {
-    const missing = (home.hero as { image: string }[])
-      .filter((h) => !assetExists(h.image))
-      .map((h) => h.image);
+  it('resolves every homepage fallback photo to a file on disk', () => {
+    // The homepage shows these while the Instagram post list is empty, so a
+    // stale key would leave the landing page with an empty grid.
+    const missing = (instagram.fallback as { key: string }[])
+      .filter((photo) => !assetExists(photo.key))
+      .map((photo) => photo.key);
     expect(missing).toEqual([]);
   });
 });
@@ -134,6 +136,13 @@ describe('image references', () => {
 describe('data quality', () => {
   it('never ships an empty accessible name for a gallery photo', () => {
     const empty = gallery.filter((g: { alt: string }) => !g.alt?.trim());
+    expect(empty).toEqual([]);
+  });
+
+  it('never ships an empty accessible name for a fallback photo', () => {
+    const empty = (instagram.fallback as { alt: string }[]).filter(
+      (photo) => !photo.alt?.trim(),
+    );
     expect(empty).toEqual([]);
   });
 
@@ -178,16 +187,23 @@ describe('site configuration', () => {
 });
 
 describe('legacy URLs', () => {
-  it('maps every product permalink to its new page', () => {
-    const mapped = Object.values(legacyUrls) as string[];
+  it('keeps a redirect for every product permalink', () => {
+    // The product pages were retired; the old permalinks must still lead
+    // somewhere useful rather than 404.
     for (const product of products) {
-      expect(mapped).toContain(`/producto/${product.id}/`);
+      const path = new URL(product.sourceUrl).pathname;
+      expect(legacyUrls[path], `${path} should be redirected`).toBe('/');
     }
   });
 
-  it('points every entry at a root-relative path', () => {
+  it('keeps the old section and gallery roots redirected', () => {
+    expect(legacyUrls['/nuestros-productos/']).toBe('/');
+    expect(legacyUrls['/galeria/']).toBe('/');
+  });
+
+  it('points every entry at the homepage, which is the only remaining target', () => {
     const bad = Object.entries(legacyUrls).filter(
-      ([from, to]) => !(from as string).startsWith('/') || !(to as string).startsWith('/'),
+      ([from, to]) => !(from as string).startsWith('/') || to !== '/',
     );
     expect(bad).toEqual([]);
   });
