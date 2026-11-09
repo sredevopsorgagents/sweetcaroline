@@ -24,7 +24,7 @@
  *    2024/03, 2025/09, 2026/03, 2026/07 ...).
  */
 
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -425,7 +425,6 @@ function buildInstagramConfig(gallery) {
   return {
     profile: 'sweetcarolinechile',
     fallback: gallery.map(({ key, alt }) => ({ key, alt })),
-    posts: [],
   };
 }
 
@@ -675,16 +674,9 @@ async function main() {
     await writeJson('src/data/gallery.json', gallery);
     await writeJson('src/data/legacy-urls.json', buildLegacyUrls(products));
 
-    // Keep any post list the client has already curated; only the local
-    // fallback photographs are regenerated.
-    const instagramPath = path.join(ROOT, 'src/data/instagram.json');
-    const existingPosts = existsSync(instagramPath)
-      ? (JSON.parse(await readFile(instagramPath, 'utf8')).posts ?? [])
-      : [];
-    await writeJson('src/data/instagram.json', {
-      ...buildInstagramConfig(gallery),
-      posts: existingPosts,
-    });
+    // The homepage links to the profile rather than embedding posts, so the
+    // only thing worth regenerating is the local photograph list.
+    await writeJson('src/data/instagram.json', buildInstagramConfig(gallery));
   }
 
   const report = renderReport({

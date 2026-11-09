@@ -1,9 +1,4 @@
-import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
-
-// This spec is an ES module, so `__dirname` does not exist; resolve the data
-// directory from `import.meta.url` instead.
-const INSTAGRAM_FEED = new URL('../../src/data/instagram.json', import.meta.url);
 
 const MAIN_ROUTES = [
   { path: '/', heading: /instagram/i },
@@ -15,76 +10,41 @@ const MAIN_ROUTES = [
 const RETIRED_ROUTES = ['/productos/', '/en-cafeteria/', '/galeria-de-fotos/'];
 
 test.describe('critical journeys', () => {
-  test('home page is the Instagram feed with a working profile link', async ({ page }) => {
+  test('home page is a call to action for the Instagram profile', async ({ page }) => {
     await page.goto('/');
 
     await expect(page.getByRole('heading', { level: 1 })).toContainText(/sweet caroline en instagram/i);
 
-    // The link to the profile is the one part of the feed that works without
-    // Instagram's script.
+    // The profile link is the whole point of the page: it must open Instagram
+    // itself, in a new tab, without leaking the referrer.
     const profile = page.getByRole('link', { name: /ver el perfil en instagram/i }).first();
-    await expect(profile).toHaveAttribute(
-      'href',
-      'https://www.instagram.com/sweetcarolinechile/',
-    );
+    await expect(profile).toHaveAttribute('href', 'https://www.instagram.com/sweetcarolinechile/');
+    await expect(profile).toHaveAttribute('target', '_blank');
+    await expect(profile).toHaveAttribute('rel', /noopener/);
   });
 
-  test('every post has an embed, and a link that works without Instagram', async ({ page }) => {
-    const feed = JSON.parse(readFileSync(INSTAGRAM_FEED, 'utf8')) as {
-      posts: string[];
-      guestPosts: string[];
-    };
-    const expected = feed.posts.length + feed.guestPosts.length;
+  test('home page embeds nothing from Instagram', async ({ page }) => {
+    // The landing page links out instead of embedding: no iframe, no blockquote
+    // and no third-party script. A visitor with a blocker, or Instagram down,
+    // sees exactly the same page as everyone else.
+    const offSite: string[] = [];
+    page.on('request', (request) => {
+      if (/instagram\.com/.test(new URL(request.url()).hostname)) offSite.push(request.url());
+    });
 
-    // `embed.js` *replaces* each blockquote with a cross-origin iframe, so the
-    // markup count is the pre-script state. Blocking Instagram exercises the
-    // path a visitor with a blocker or a down service gets: one blockquote and
-    // one working link per post.
-    await page.route(/instagram\.com/, (route) => route.abort());
-    await page.goto('/');
+    await page.goto('/', { waitUntil: 'networkidle' });
+    // Let any late script finish before counting.
+    await page.waitForTimeout(1500);
 
-    await expect(page.locator('main blockquote.instagram-media')).toHaveCount(expected);
+    await expect(page.locator('main iframe')).toHaveCount(0);
+    await expect(page.locator('main blockquote')).toHaveCount(0);
+    await expect(page.locator('script[src]')).toHaveCount(0);
 
-    const links = page.locator('main blockquote.instagram-media a[href*="instagram.com"]');
-    await expect(links).toHaveCount(expected);
-    const hrefs = await links.evaluateAll((anchors) =>
-      anchors.map((anchor) => anchor.getAttribute('href') ?? ''),
-    );
-    expect(hrefs).toEqual([...feed.posts, ...feed.guestPosts]);
+    // Only the CTA may reach Instagram, and only when it is clicked.
+    expect(offSite, offSite.join('\n')).toEqual([]);
   });
 
-  test('every post keeps a visible link once Instagram rewrites the embeds', async ({ page }) => {
-    // `embed.js` deletes each blockquote it converts, and Instagram can answer
-    // its embed endpoint with `x-frame-options: DENY`, leaving an empty 2px
-    // frame. The per-post link lives outside the blockquote for exactly that
-    // case: no post may become unreachable.
-    const feed = JSON.parse(readFileSync(INSTAGRAM_FEED, 'utf8')) as {
-      posts: string[];
-      guestPosts: string[];
-    };
-    const expected = [...feed.posts, ...feed.guestPosts];
-
-    await page.goto('/');
-    // Allow the embed script to run and rewrite the list, or to fail trying.
-    await page.waitForTimeout(3000);
-
-    const visible = await page
-      .locator('main a[href^="https://www.instagram.com/"]')
-      .evaluateAll((anchors) =>
-        anchors
-          .filter((anchor) => (anchor as HTMLElement).offsetParent !== null)
-          .map((anchor) => anchor.getAttribute('href') ?? ''),
-      );
-
-    for (const url of expected) {
-      expect(visible, `${url} should stay reachable`).toContain(url);
-    }
-  });
-
-  test('the embeds do not overflow the page when Instagram loads', async ({ page }) => {
-    // Instagram styles its frame `position: absolute; width: 100%;`. Without a
-    // positioned wrapper that 100% resolves against the viewport and the page
-    // scrolls sideways on a phone.
+  test('the homepage does not overflow on a narrow screen', async ({ page }) => {
     await page.goto('/', { waitUntil: 'networkidle' });
 
     const overflow = await page.evaluate(() => ({
@@ -92,23 +52,6 @@ test.describe('critical journeys', () => {
       clientWidth: document.documentElement.clientWidth,
     }));
     expect(overflow.scrollWidth - overflow.clientWidth).toBeLessThanOrEqual(1);
-  });
-
-  test('labels a post published by another account', async ({ page }) => {
-    // Instagram replaces the blockquote with an iframe, so keep the markup the
-    // label sits next to by blocking the embed script.
-    await page.route(/instagram\.com/, (route) => route.abort());
-    await page.goto('/');
-
-    // A guest post must be attributed, or the homepage implies it is ours.
-    const feed = JSON.parse(
-      readFileSync(INSTAGRAM_FEED, 'utf8'),
-    ) as { guestPosts: string[] };
-    for (const url of feed.guestPosts) {
-      const account = /instagram\.com\/([A-Za-z0-9._]+)\/(?:p|reel)\//.exec(url)?.[1];
-      expect(account, `${url} should name its account`).toBeTruthy();
-      await expect(page.getByRole('link', { name: `@${account}` })).toBeVisible();
-    }
   });
 
   test('shows both published opening-hours ranges on the contact page', async ({ page }) => {

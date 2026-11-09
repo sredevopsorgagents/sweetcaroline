@@ -1,11 +1,9 @@
 /**
- * Instagram feed configuration.
+ * Instagram profile configuration.
  *
- * Instagram has no official full-profile embed: the homepage embeds individual
- * posts with the official `embed.js`, driven entirely by `src/data/instagram.json`.
- * A malformed permalink does not fail loudly in the browser — Instagram's script
- * simply leaves an empty blockquote — so the shape is asserted here, where the
- * fix is obvious.
+ * The homepage links out to the profile instead of embedding the feed, so the
+ * only thing that can silently break here is the handle drifting from the one
+ * the rest of the site links to, or the metadata photograph going missing.
  */
 
 import { readFileSync, existsSync } from 'node:fs';
@@ -21,62 +19,23 @@ const instagram = JSON.parse(
 ) as {
   profile: string;
   fallback: { key: string; alt: string }[];
-  posts: string[];
-  guestPosts: string[];
 };
-
-// Mirrors INSTAGRAM_POST_PATTERN in src/data/instagram.ts: `/p/` or `/reel/`,
-// optionally prefixed with the publishing account.
-const postPattern =
-  /^https:\/\/www\.instagram\.com\/(?:[A-Za-z0-9._]+\/)?(?:p|reel)\/[A-Za-z0-9_-]+\/?$/;
-
-/** Mirrors postAccount(): the prefixed form names its account explicitly. */
-const postAccount = (url: string) =>
-  /^https:\/\/www\.instagram\.com\/([A-Za-z0-9._]+)\/(?:p|reel)\//.exec(url)?.[1] ??
-  instagram.profile;
 
 const assetExists = (key: string) =>
   ['webp', 'avif', 'png', 'jpg', 'jpeg', 'svg'].some((ext) =>
     existsSync(path.join(ASSETS, `${key}.${ext}`)),
   );
 
-const allPosts = [...instagram.posts, ...instagram.guestPosts];
-
-describe('instagram feed', () => {
+describe('instagram profile', () => {
   it('points at the same profile the rest of the site links to', () => {
     // site.json drives the header, footer, contact page and JSON-LD `sameAs`;
-    // a divergent handle here would show one feed and link to another.
+    // a divergent handle here would send visitors to the wrong account.
     expect(site.instagram).toBe(`https://www.instagram.com/${instagram.profile}/`);
   });
 
-  it('lists only individual post or Reel permalinks', () => {
-    const bad = allPosts.filter((url) => !postPattern.test(url));
-    expect(bad).toEqual([]);
-  });
-
-  it('never lists the same post twice', () => {
-    expect(new Set(allPosts).size).toBe(allPosts.length);
-  });
-
-  it('features our own posts, and only our own posts, in `posts`', () => {
-    // A post by another account belongs in `guestPosts`, which the page labels
-    // with that account, so the homepage never implies it is ours.
-    const foreign = instagram.posts.filter((url) => postAccount(url) !== instagram.profile);
-    expect(foreign).toEqual([]);
-  });
-
-  it('names the publishing account on every guest post', () => {
-    const unlabelled = instagram.guestPosts.filter((url) => postAccount(url) === instagram.profile);
-    expect(unlabelled).toEqual([]);
-  });
-
-  it('stays within the number of embeds the grid is designed for', () => {
-    // One `<blockquote>` per post; beyond a dozen the page is slower than it is
-    // useful, and each embed is a third-party iframe.
-    expect(allPosts.length).toBeLessThanOrEqual(12);
-  });
-
-  it('falls back to photographs that exist on disk', () => {
+  it('ships a fallback photograph that exists on disk', () => {
+    // The homepage uses the first entry as its Open Graph image, which has to
+    // be a local asset: `astro:assets` cannot optimise a remote file.
     expect(instagram.fallback.length).toBeGreaterThan(0);
     const missing = instagram.fallback.filter((photo) => !assetExists(photo.key));
     expect(missing.map((photo) => photo.key)).toEqual([]);

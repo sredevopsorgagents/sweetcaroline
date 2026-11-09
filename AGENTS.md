@@ -41,15 +41,23 @@ docs/adr/               architecture decision records
 | `npm run content:check` | Same importer, writes nothing |
 | `npm run redirects` | Stubs alone |
 
-### Editing the homepage Instagram feed
+### The homepage Instagram link
 
-`/` renders individual Instagram posts with the official embed script; Instagram
-has no official full-profile embed. Add a post permalink
-(`https://www.instagram.com/p/<id>/` or `/reel/<id>/`) to `posts` in
-`src/data/instagram.json` and rebuild. The importer regenerates only the local
-`fallback` photographs and preserves an existing `posts` list. A malformed
-permalink fails the build. With `posts` empty the page shows the fallback
-photographs and loads nothing from Instagram. See ADR 0006.
+`/` is a call to action, not a feed: an introduction plus a "Ver el perfil en
+Instagram" button to `https://www.instagram.com/sweetcarolinechile/`, then the
+shared contact strip. It embeds nothing — no `embed.js`, no `<blockquote>`, no
+iframe — so no request reaches `instagram.com` until a visitor clicks. The client
+asked for exactly this; the post-embed design that preceded it is explained in
+ADR 0006 and recoverable from git.
+
+`src/data/instagram.json` holds `profile` and `fallback` only. Nothing renders
+the photographs; the first one is the Open Graph image, which must be a local
+asset because `astro:assets` cannot optimise a remote file. The importer
+regenerates that file from the WordPress gallery.
+
+If asked to show posts again, restore both the data list *and* the component —
+and re-read ADR 0006 first, including the `x-frame-options: DENY` caveat that
+made the embeds unreliable.
 
 ### Ordering
 
@@ -129,7 +137,7 @@ network rather than quietly read production. See `scripts/wp-base.mjs`.
    import that already happened, not configuration.
 7. **Update the ADRs when a decision changes.** ADR 0002 documents the no-CMS choice and
    points at the follow-up; ADR 0003 documents the hosting arrangement; ADR 0004 the
-   indexing policy; ADR 0006 the two-section site and the Instagram feed.
+   indexing policy; ADR 0006 the two-section site and the homepage Instagram link.
 
 ## Environment gotchas that cost real time here
 
